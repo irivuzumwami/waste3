@@ -35,6 +35,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors[] = "Password must be at least 6 characters long!";
     }
     
+    // Validate email
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        $errors[] = "Invalid email address!";
+    }
+    
+    // Validate phone (Rwandan format)
+    if (!preg_match('/^07[0-9]{8}$/', $phone)) {
+        $errors[] = "Invalid phone number! Must be 10 digits starting with 07 (e.g., 0781234567)";
+    }
+    
     // Check if email already exists
     $check_email = $pdo->prepare("SELECT id FROM customer WHERE email = ?");
     $check_email->execute([$email]);
@@ -52,11 +62,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // If no errors, proceed with registration
     if (empty($errors)) {
         try {
-            // Insert into customer table (remove the foreign key constraint issue)
+            // Insert into customer table
             $stmt = $pdo->prepare("INSERT INTO customer (firstname, lastname, email, phone, status, housenumber, province, district, sector, cell, village, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             
             if ($stmt->execute([$firstname, $lastname, $email, $phone, $status, $housenumber, $province, $district, $sector, $cell, $village, $password])) {
-                $success = "Registration successful! You can now login.";
+                $success = "Registration successful! Redirecting to login...";
                 // Clear form data
                 $_POST = array();
             } else {
@@ -69,6 +79,13 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     } else {
         $error = implode("<br>", $errors);
     }
+}
+
+// Check if background image exists
+$bgImage = 'ede.jpg';
+$bgImagePath = __DIR__ . '/../' . $bgImage;
+if (!file_exists($bgImagePath)) {
+    $bgImage = '';
 }
 ?>
 <!DOCTYPE html>
@@ -98,24 +115,59 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: var(--bg-dark);
             color: #fff;
             min-height: 100vh;
+            position: relative;
+        }
+        
+        /* Background Image with Overlay */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: <?php echo $bgImage ? "url('../" . $bgImage . "')" : "linear-gradient(135deg, #1e3a8a, #0f172a)"; ?>;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
+            filter: brightness(0.6);
+            z-index: -2;
+        }
+        
+        body::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(0,0,0,0.5));
+            z-index: -1;
         }
         
         .container {
             max-width: 800px;
             margin: 2rem auto;
             padding: 2rem;
-            background: rgba(255,255,255,0.05);
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(10px);
             border-radius: 20px;
             border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
         }
         
         h1 {
             text-align: center;
             color: var(--secondary);
             margin-bottom: 2rem;
+            font-size: 2rem;
+        }
+        
+        h1 i {
+            margin-right: 10px;
         }
         
         .form-group {
@@ -126,6 +178,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             display: block;
             margin-bottom: 0.5rem;
             color: var(--text-muted);
+            font-weight: 500;
         }
         
         input, select {
@@ -139,10 +192,39 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             transition: all 0.3s ease;
         }
         
+        /* Enhanced select dropdown styling with better visibility */
+        select {
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+           
+            background-repeat: no-repeat;
+            background-position: right 1rem center;
+            background-size: 1rem;
+        }
+        
+        select option {
+            background: var(--bg-dark);
+            color: #fff;
+            padding: 12px;
+            font-size: 1rem;
+        }
+        
+        select option:hover {
+            background: var(--primary);
+            color: var(--secondary);
+        }
+        
+        select:focus option:checked {
+            background: var(--primary) linear-gradient(0deg, var(--primary) 0%, var(--primary) 100%);
+        }
+        
         input:focus, select:focus {
             outline: none;
             border-color: var(--secondary);
             box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+            background: rgba(255,255,255,0.15);
         }
         
         .row {
@@ -187,26 +269,69 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             background: rgba(255,255,255,0.1);
         }
         
-        button[type="submit"] {
-            width: 100%;
+        /* Button Group - Both Buttons Styled Consistently */
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        
+        .btn {
             padding: 1rem;
-            background: var(--primary);
-            border: none;
             border-radius: 10px;
-            color: #fff;
             font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
-            margin-top: 1rem;
-            transition: 0.3s;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            border: none;
         }
         
-        button[type="submit"]:hover {
-            background: var(--secondary);
+        .btn-register {
+            flex: 2;
+            background: linear-gradient(135deg, var(--primary), #2e4a8a);
+            color: #fff;
+            border: 1px solid var(--secondary);
+        }
+        
+        .btn-register:hover {
+            background: linear-gradient(135deg, var(--secondary), #fcd34d);
             color: var(--primary);
             transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
         }
         
+        .btn-back {
+            flex: 1;
+            background: linear-gradient(135deg, var(--primary), #2e4a8a);
+            color: #fff;
+            border: 1px solid var(--secondary);
+        }
+        
+        .btn-back:hover {
+            background: linear-gradient(135deg, var(--secondary), #fcd34d);
+            color: var(--primary);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(251, 191, 36, 0.4);
+        }
+        
+        .btn i {
+            font-size: 1rem;
+            transition: transform 0.3s ease;
+        }
+        
+        .btn-register:hover i {
+            transform: translateX(3px);
+        }
+        
+        .btn-back:hover i {
+            transform: translateX(-3px);
+        }
+        
+        /* Alert Styles */
         .alert {
             padding: 1rem;
             border-radius: 10px;
@@ -222,14 +347,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         .alert-error {
-            background: rgba(255,0,0,0.2);
+            background: rgba(255,68,68,0.2);
             border: 1px solid #ff4444;
-            color: #ff4444;
+            color: #ff8888;
         }
         
         .login-link {
             text-align: center;
             margin-top: 1.5rem;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.1);
         }
         
         .login-link a {
@@ -245,12 +372,21 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         .password-strength {
             font-size: 0.8rem;
             margin-top: 0.3rem;
-            color: var(--text-muted);
         }
         
         .strength-weak { color: #ff4444; }
         .strength-medium { color: #ffbb44; }
         .strength-strong { color: var(--teal-accent); }
+        
+        .match-success { color: var(--teal-accent); }
+        .match-error { color: #ff4444; }
+        
+        small {
+            display: block;
+            margin-top: 0.3rem;
+            color: var(--text-muted);
+            font-size: 0.7rem;
+        }
         
         @keyframes slideIn {
             from {
@@ -263,101 +399,115 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
         }
         
-        @media (max-width: 300px) {
+        @media (max-width: 600px) {
             .container {
                 margin: 1rem;
-                padding: 1rem;
+                padding: 1.5rem;
             }
             .row {
                 grid-template-columns: 1fr;
+            }
+            .button-group {
+                flex-direction: column;
+            }
+            .btn-register, .btn-back {
+                flex: auto;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Customer Registration</h1>
+        <h1>
+            <i class="fas fa-user-plus"></i> 
+            Customer Registration
+        </h1>
         
         <?php if($success): ?>
-            <div class="alert alert-success"><?php echo $success; ?></div>
+            <div class="alert alert-success">
+                <i class="fas fa-check-circle"></i> <?php echo $success; ?>
+            </div>
             <script>
                 setTimeout(function() {
-                    window.location.href = '../index.php?success=registered';
+                    window.location.href = '../index.php?success=registered&show_login=1';
                 }, 2000);
             </script>
         <?php endif; ?>
         
         <?php if($error): ?>
-            <div class="alert alert-error"><?php echo $error; ?></div>
+            <div class="alert alert-error">
+                <i class="fas fa-exclamation-circle"></i> <?php echo $error; ?>
+            </div>
         <?php endif; ?>
         
         <form method="POST" id="registerForm" onsubmit="return validateForm()">
             <div class="row">
                 <div class="form-group">
-                    <label>First Name</label>
-                    <input type="text" name="firstname" value="<?php echo isset($_POST['firstname']) ? htmlspecialchars($_POST['firstname']) : ''; ?>" required>
+                    <label><i class="fas fa-user"></i> First Name *</label>
+                    <input type="text" name="firstname" value="<?php echo isset($_POST['firstname']) ? htmlspecialchars($_POST['firstname']) : ''; ?>" placeholder="Enter first name" required>
                 </div>
                 <div class="form-group">
-                    <label>Last Name</label>
-                    <input type="text" name="lastname" value="<?php echo isset($_POST['lastname']) ? htmlspecialchars($_POST['lastname']) : ''; ?>" required>
+                    <label><i class="fas fa-user"></i> Last Name *</label>
+                    <input type="text" name="lastname" value="<?php echo isset($_POST['lastname']) ? htmlspecialchars($_POST['lastname']) : ''; ?>" placeholder="Enter last name" required>
                 </div>
             </div>
             
             <div class="row">
                 <div class="form-group">
-                    <label>Email</label>
-                    <input type="email" name="email" id="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" required>
+                    <label><i class="fas fa-envelope"></i> Email *</label>
+                    <input type="email" name="email" id="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" placeholder="your@email.com" required>
                 </div>
                 <div class="form-group">
-                    <label>Phone</label>
-                    <input type="tel" name="phone" id="phone" value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>" required>
+                    <label><i class="fas fa-phone"></i> Phone *</label>
+                    <input type="tel" name="phone" id="phone" placeholder="0781234567" value="<?php echo isset($_POST['phone']) ? htmlspecialchars($_POST['phone']) : ''; ?>" required>
+                    <small>Format: 0781234567</small>
                 </div>
             </div>
             
             <div class="form-group">
-                <label>House Number</label>
-                <input type="text" name="housenumber" value="<?php echo isset($_POST['housenumber']) ? htmlspecialchars($_POST['housenumber']) : ''; ?>" required>
+                <label><i class="fas fa-home"></i> House Number *</label>
+                <input type="text" name="housenumber" placeholder="e.g., KN 14 Ave, KG 123 St" value="<?php echo isset($_POST['housenumber']) ? htmlspecialchars($_POST['housenumber']) : ''; ?>" required>
             </div>
             
             <div class="row">
                 <div class="form-group">
-                    <label>Province</label>
-                    <select name="province" required>
-                        <option value="">Select Province</option>
-                        <option value="Kigali" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Kigali') ? 'selected' : ''; ?>>Kigali</option>
-                        <option value="Northern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Northern') ? 'selected' : ''; ?>>Northern</option>
-                        <option value="Southern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Southern') ? 'selected' : ''; ?>>Southern</option>
-                        <option value="Eastern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Eastern') ? 'selected' : ''; ?>>Eastern</option>
-                        <option value="Western" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Western') ? 'selected' : ''; ?>>Western</option>
+                    <label><i class="fas fa-map-marker-alt"></i> Province *</label>
+                    <select name="province" id="province" required style="color: #fff;">
+                        <option value="" disabled <?php echo !isset($_POST['province']) ? 'selected' : ''; ?>>-- Select Province --</option>
+                        <option value="Kigali" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Kigali') ? 'selected' : ''; ?> style="background: #1e3a8a;">Kigali City</option>
+                        <option value="Northern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Northern') ? 'selected' : ''; ?> style="background: #1e3a8a;">Northern Province</option>
+                        <option value="Southern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Southern') ? 'selected' : ''; ?> style="background: #1e3a8a;">Southern Province</option>
+                        <option value="Eastern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Eastern') ? 'selected' : ''; ?> style="background: #1e3a8a;">Eastern Province</option>
+                        <option value="Western" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Western') ? 'selected' : ''; ?> style="background: #1e3a8a;">Western Province</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>District</label>
-                    <input type="text" name="district" value="<?php echo isset($_POST['district']) ? htmlspecialchars($_POST['district']) : ''; ?>" required>
+                    <label><i class="fas fa-city"></i> District *</label>
+                    <input type="text" name="district" placeholder="Enter district" value="<?php echo isset($_POST['district']) ? htmlspecialchars($_POST['district']) : ''; ?>" required>
                 </div>
             </div>
             
             <div class="row">
                 <div class="form-group">
-                    <label>Sector</label>
-                    <input type="text" name="sector" value="<?php echo isset($_POST['sector']) ? htmlspecialchars($_POST['sector']) : ''; ?>" required>
+                    <label><i class="fas fa-building"></i> Sector *</label>
+                    <input type="text" name="sector" placeholder="Enter sector" value="<?php echo isset($_POST['sector']) ? htmlspecialchars($_POST['sector']) : ''; ?>" required>
                 </div>
                 <div class="form-group">
-                    <label>Cell</label>
-                    <input type="text" name="cell" value="<?php echo isset($_POST['cell']) ? htmlspecialchars($_POST['cell']) : ''; ?>" required>
+                    <label><i class="fas fa-location-dot"></i> Cell *</label>
+                    <input type="text" name="cell" placeholder="Enter cell" value="<?php echo isset($_POST['cell']) ? htmlspecialchars($_POST['cell']) : ''; ?>" required>
                 </div>
             </div>
             
             <div class="form-group">
-                <label>Village</label>
-                <input type="text" name="village" value="<?php echo isset($_POST['village']) ? htmlspecialchars($_POST['village']) : ''; ?>" required>
+                <label><i class="fas fa-tree"></i> Village *</label>
+                <input type="text" name="village" placeholder="Enter village" value="<?php echo isset($_POST['village']) ? htmlspecialchars($_POST['village']) : ''; ?>" required>
             </div>
             
             <div class="row">
                 <div class="form-group">
-                    <label>Password</label>
+                    <label><i class="fas fa-lock"></i> Password *</label>
                     <div class="password-container">
-                        <input type="password" name="password" id="password" required>
+                        <input type="password" name="password" id="password" placeholder="Minimum 6 characters" required>
                         <button type="button" class="toggle-password" onclick="togglePassword('password')">
                             <i class="fas fa-eye"></i>
                         </button>
@@ -365,9 +515,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <div class="password-strength" id="passwordStrength"></div>
                 </div>
                 <div class="form-group">
-                    <label>Confirm Password</label>
+                    <label><i class="fas fa-lock"></i> Confirm Password *</label>
                     <div class="password-container">
-                        <input type="password" name="confirm_password" id="confirm_password" required>
+                        <input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm your password" required>
                         <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
                             <i class="fas fa-eye"></i>
                         </button>
@@ -376,12 +526,19 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 </div>
             </div>
             
-            <button type="submit">Register Now</button>
-            <button type="button" style="margin-top: 0." onclick="window.location.href='../index.php'">Back</button>
+            <div class="button-group">
+                <button type="submit" class="btn btn-register">
+                    <i class="fas fa-user-plus"></i> Register Now
+                </button>
+                <button type="button" class="btn btn-back" onclick="window.location.href='../index.php'">
+                    <i class="fas fa-arrow-left"></i> Back to Home
+                </button>
+            </div>
         </form>
         
         <div class="login-link">
-            Already have an account? <a href="../index.php" onclick="openLoginModal()">Login here</a>
+            <i class="fas fa-sign-in-alt"></i> Already have an account? 
+            <a href="../index.php?show_login=1">Login here</a>
         </div>
     </div>
     
@@ -418,6 +575,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             let className = '';
             
             // Length check
+            if (password.length >= 6) strength++;
             if (password.length >= 8) strength++;
             if (password.length >= 12) strength++;
             
@@ -431,17 +589,17 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
             
             if (strength <= 2) {
-                message = 'Weak password';
+                message = '⚠️ Weak password';
                 className = 'strength-weak';
             } else if (strength <= 4) {
-                message = 'Medium password';
+                message = '⚡ Medium password';
                 className = 'strength-medium';
             } else {
-                message = 'Strong password';
+                message = '✓ Strong password';
                 className = 'strength-strong';
             }
             
-            strengthDiv.innerHTML = message;
+            strengthDiv.innerHTML = '<i class="fas fa-info-circle"></i> ' + message;
             strengthDiv.className = 'password-strength ' + className;
         }
         
@@ -457,11 +615,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             }
             
             if (password === confirm) {
-                matchDiv.innerHTML = '✓ Passwords match';
-                matchDiv.style.color = '#00c49a';
+                matchDiv.innerHTML = '<i class="fas fa-check-circle"></i> Passwords match';
+                matchDiv.className = 'password-strength match-success';
             } else {
-                matchDiv.innerHTML = '✗ Passwords do not match';
-                matchDiv.style.color = '#ff4444';
+                matchDiv.innerHTML = '<i class="fas fa-times-circle"></i> Passwords do not match';
+                matchDiv.className = 'password-strength match-error';
             }
         }
         
@@ -471,6 +629,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             const confirm = document.getElementById('confirm_password').value;
             const email = document.getElementById('email').value;
             const phone = document.getElementById('phone').value;
+            const province = document.getElementById('province').value;
             
             if (password !== confirm) {
                 alert('Passwords do not match!');
@@ -479,6 +638,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
             if (password.length < 6) {
                 alert('Password must be at least 6 characters long!');
+                return false;
+            }
+            
+            if (!province) {
+                alert('Please select a province!');
                 return false;
             }
             
@@ -492,7 +656,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             // Phone validation (Rwandan format)
             const phoneRegex = /^07[0-9]{8}$/;
             if (!phoneRegex.test(phone)) {
-                alert('Please enter a valid phone number (format: 078XXXXXXX)');
+                alert('Please enter a valid phone number (format: 0781234567)');
                 return false;
             }
             
@@ -500,16 +664,43 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
         
         // Add event listeners
-        document.getElementById('password').addEventListener('input', function() {
-            checkPasswordStrength();
-            checkPasswordMatch();
-        });
+        const passwordField = document.getElementById('password');
+        const confirmField = document.getElementById('confirm_password');
         
-        document.getElementById('confirm_password').addEventListener('input', checkPasswordMatch);
+        if (passwordField) {
+            passwordField.addEventListener('input', function() {
+                checkPasswordStrength();
+                checkPasswordMatch();
+            });
+        }
+        
+        if (confirmField) {
+            confirmField.addEventListener('input', checkPasswordMatch);
+        }
+        
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
         
         // Open login modal function (for the login link)
         function openLoginModal() {
             window.location.href = '../index.php?show_login=1';
+        }
+        
+        // Add province select styling enhancement
+        const provinceSelect = document.getElementById('province');
+        if (provinceSelect) {
+            provinceSelect.addEventListener('change', function() {
+                if (this.value) {
+                    this.style.color = '#fff';
+                    this.style.fontWeight = '500';
+                }
+            });
         }
     </script>
 </body>

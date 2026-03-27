@@ -1,164 +1,165 @@
 <?php
 session_start();
-require_once 'config/database.php';
+// Database configuration file
+if (file_exists('config/database.php')) {
+    require_once 'config/database.php';
+}
 
-// Check if user is logged in and redirect to appropriate dashboard
+// 1. Session & Role Redirect Logic
 if (isset($_SESSION['user_id']) && isset($_SESSION['role'])) {
-    switch ($_SESSION['role']) {
-        case 'admin':
-            header('Location: admin/dashboard.php');
-            exit;
-        case 'manager':
-            header('Location: manager/dashboard.php');
-            exit;
-        case 'driver':
-            header('Location: driver/dashboard.php');
-            exit;
-        case 'collector':
-            header('Location: collector/dashboard.php');
-            exit;
-        case 'customer':
-            header('Location: customer/dashboard.php');
-            exit;
+    $role = $_SESSION['role'];
+    $redirects = [
+        'admin'     => 'admin/dashboard.php',
+        'manager'   => 'manager/dashboard.php',
+        'driver'    => 'driver/dashboard.php',
+        'collector' => 'collector/dashboard.php',
+        'customer'  => 'customer/dashboard.php'
+    ];
+    if (array_key_exists($role, $redirects)) {
+        header('Location: ' . $redirects[$role]);
+        exit;
     }
 }
 
-// Check if we need to show login modal
+// 2. Logic for UI states
 $showLoginModal = isset($_GET['error']) || isset($_GET['show_login']) || isset($_GET['logout']);
 
-// Check if a.jpg exists, if not use a default gradient
-$bgImage = 'a.jpg';
-$bgImagePath = __DIR__ . '/' . $bgImage;
-if (!file_exists($bgImagePath)) {
-    $bgImage = ''; // Will use gradient fallback
+// 3. Image Handling
+$backgroundImages = ['pe.jpg', 'wa.jpg', 'z.jpg', 'ede.jpg'];
+$validImages = [];
+
+foreach ($backgroundImages as $image) {
+    if (file_exists(__DIR__ . '/' . $image)) {
+        $validImages[] = $image;
+    }
 }
+
+// Logo Check
+$logoPath = 'logo.jpeg';
+$logoExists = file_exists(__DIR__ . '/' . $logoPath);
+$hasImages = count($validImages) > 0;
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>EcoWaste | Smart Waste Management System</title>
-    <!-- Font Awesome CDN for eye icons -->
+    <title>WMS | Smart Waste Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --primary: #1e3a8a;
             --secondary: #fbbf24;
-            --glass-bg: rgba(255, 255, 255, 0.12);
+            --glass-bg: rgba(255, 255, 255, 0.08);
             --bg-dark: #0f172a;
             --footer-bg: #0b1120;
             --text-muted: #94a3b8;
             --teal-accent: #00c49a;
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #fff;
+            font-family: 'Segoe UI', system-ui, sans-serif;
             background: var(--bg-dark);
+            color: #fff;
+            overflow-x: hidden;
         }
-        
-        /* Navigation */
+
+        /* --- Navbar & Logo - Enhanced --- */
         .navbar {
-            background: rgba(15, 23, 42, 0.95);
-            backdrop-filter: blur(10px);
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(12px);
             position: fixed;
             width: 100%;
             top: 0;
             z-index: 1000;
-            padding: 1rem 5%;
+            padding: 0.8rem 5%;
             display: flex;
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        
-        /* Enhanced Logo with Icon */
-        .logo {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.8rem;
-            font-weight: bold;
+
+        .logo { 
+            display: flex; 
+            align-items: center; 
+            gap: 12px; 
+            text-decoration: none; 
+            color: inherit;
+            transition: transform 0.3s ease;
         }
         
-        .logo-icon {
-            width: 45px;
-            height: 45px;
-            background: linear-gradient(135deg, var(--primary), var(--teal-accent));
+        .logo:hover {
+            transform: translateY(-2px);
+        }
+        
+        .logo-img {
+            width: 55px;
+            height: 55px;
+            object-fit: cover;
             border-radius: 12px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: gentlePulse 2s infinite;
+            border: 2px solid var(--teal-accent);
+            transition: all 0.3s ease;
         }
         
-        .logo-icon i {
-            font-size: 24px;
-            color: var(--secondary);
+        .logo:hover .logo-img {
+            transform: scale(1.05);
+            border-color: var(--secondary);
         }
-        
+
         .logo-text {
             display: flex;
             flex-direction: column;
             line-height: 1.2;
         }
-        
-        .logo-main {
-            font-size: 24px;
-            font-weight: 800;
+
+        .logo-main { 
+            font-size: 28px; 
+            font-weight: 800; 
+            letter-spacing: 1px;
         }
         
-        .logo-main .eco {
-            background: linear-gradient(135deg, var(--primary), var(--teal-accent));
+        .wms { 
+            background: linear-gradient(135deg, var(--teal-accent), var(--secondary));
             -webkit-background-clip: text;
             background-clip: text;
             color: transparent;
         }
         
-        .logo-main .waste {
-            color: var(--secondary);
-        }
-        
         .logo-tagline {
-            font-size: 8px;
+            font-size: 10px;
             color: var(--text-muted);
             letter-spacing: 1px;
             text-transform: uppercase;
+            margin-top: 2px;
         }
-        
-        @keyframes gentlePulse {
-            0%, 100% {
-                box-shadow: 0 2px 8px rgba(0,196,154,0.2);
-            }
-            50% {
-                box-shadow: 0 2px 12px rgba(0,196,154,0.4);
-            }
-        }
-        
-        .nav-links {
-            display: flex;
-            gap: 2rem;
-            align-items: center;
-        }
-        
-        .nav-links a {
-            color: #fff;
-            text-decoration: none;
+
+        .nav-links { display: flex; gap: 2rem; align-items: center; }
+        .nav-links a { 
+            color: #fff; 
+            text-decoration: none; 
+            font-weight: 500; 
             transition: 0.3s;
-            font-weight: 500;
+            position: relative;
         }
         
-        .nav-links a:hover {
-            color: var(--secondary);
+        .nav-links a::after {
+            content: '';
+            position: absolute;
+            bottom: -5px;
+            left: 0;
+            width: 0;
+            height: 2px;
+            background: var(--secondary);
+            transition: width 0.3s ease;
         }
+        
+        .nav-links a:hover::after {
+            width: 100%;
+        }
+        
+        .nav-links a:hover { color: var(--secondary); }
         
         .btn-login {
             background: var(--primary);
@@ -167,206 +168,57 @@ if (!file_exists($bgImagePath)) {
             border: 1px solid var(--secondary);
         }
         
+        .btn-login::after {
+            display: none;
+        }
+        
         .btn-login:hover {
             background: var(--secondary);
             color: var(--primary);
+            transform: translateY(-2px);
         }
-        
-        /* Hero Section with a.jpg background */
+
+        /* --- Hero & Background Animation --- */
         .hero {
-            min-height: 100vh;
+            height: 100vh;
+            position: relative;
             display: flex;
             align-items: center;
             justify-content: center;
             text-align: center;
-            padding: 0 1rem;
-            position: relative;
-            background-color: var(--bg-dark);
+            overflow: hidden;
         }
-        
-        /* Background with image */
-        .hero::before {
-            content: '';
+
+        .hero-bg {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background-image: <?php echo $bgImage ? "url('" . $bgImage . "')" : "linear-gradient(135deg, #1e3a8a, #0f172a)"; ?>;
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-            background-attachment: fixed;
-            filter: brightness(0.5);
+            top: 0; left: 0; width: 100%; height: 100%;
             z-index: 0;
         }
-        
-        /* Gradient overlay for better text readability */
-        .hero::after {
-            content: '';
+
+        .bg-image {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: linear-gradient(135deg, rgba(0,0,0,0.7), rgba(0,0,0,0.5));
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .bg-image.active { opacity: 1; }
+
+        .hero-overlay {
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(15,23,42,0.85));
             z-index: 1;
         }
-        
-        .hero-content {
-            position: relative;
-            z-index: 2;
+
+        .hero-content { 
+            position: relative; 
+            z-index: 10; 
+            padding: 0 20px;
             max-width: 800px;
-        }
-        
-        .hero-content h1 {
-            font-size: 3.8rem;
-            margin-bottom: 1rem;
-            animation: fadeInUp 1s ease;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
-        
-        .hero-content h1 .highlight {
-            color: var(--secondary);
-        }
-        
-        .hero-content p {
-            font-size: 1.2rem;
-            margin-bottom: 2rem;
-            color: rgba(255,255,255,0.9);
-            animation: fadeInUp 1s ease 0.2s forwards;
-            opacity: 0;
-            animation-fill-mode: forwards;
-            max-width: 600px;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        
-        .btn-group {
-            display: flex;
-            gap: 1rem;
-            justify-content: center;
-            flex-wrap: wrap;
-            animation: fadeInUp 1s ease 0.4s forwards;
-            opacity: 0;
-            animation-fill-mode: forwards;
-        }
-        
-        .btn {
-            padding: 1rem 2rem;
-            border-radius: 50px;
-            text-decoration: none;
-            font-weight: bold;
-            transition: 0.3s;
-            display: inline-block;
-        }
-        
-        .btn-primary {
-            background: var(--primary);
-            color: #fff;
-            border: 1px solid var(--secondary);
-        }
-        
-        .btn-primary:hover {
-            background: var(--secondary);
-            color: var(--primary);
-            transform: translateY(-3px);
-        }
-        
-        .btn-outline {
-            border: 2px solid var(--secondary);
-            color: var(--secondary);
-        }
-        
-        .btn-outline:hover {
-            background: var(--secondary);
-            color: var(--primary);
-            transform: translateY(-3px);
-        }
-        
-        /* Features Section */
-        .features {
-            padding: 5rem 5%;
-            background: var(--bg-dark);
-            position: relative;
-            z-index: 1;
-        }
-        
-        .section-title {
-            text-align: center;
-            font-size: 2.5rem;
-            margin-bottom: 3rem;
-            color: var(--secondary);
-        }
-        
-        .features-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-            gap: 2rem;
-        }
-        
-        .feature-card {
-            background: var(--glass-bg);
-            backdrop-filter: blur(10px);
-            padding: 2rem;
-            border-radius: 20px;
-            text-align: center;
-            transition: 0.3s;
-            border: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .feature-card:hover {
-            transform: translateY(-10px);
-            border-color: var(--secondary);
-        }
-        
-        .feature-icon {
-            font-size: 3rem;
-            margin-bottom: 1rem;
-        }
-        
-        .feature-card h3 {
-            margin-bottom: 1rem;
-            color: var(--secondary);
-        }
-        
-        /* Footer */
-        .footer {
-            background: var(--footer-bg);
-            padding: 3rem 5% 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            position: relative;
-            z-index: 1;
-        }
-        
-        .footer-content {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-        
-        .footer-section h3 {
-            color: var(--secondary);
-            margin-bottom: 1rem;
-        }
-        
-        .footer-section p, .footer-section a {
-            color: var(--text-muted);
-            text-decoration: none;
-            display: block;
-            margin-bottom: 0.5rem;
-        }
-        
-        .footer-section a:hover {
-            color: var(--secondary);
-        }
-        
-        .copyright {
-            text-align: center;
-            padding-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-muted);
+            animation: fadeInUp 0.8s ease;
         }
         
         @keyframes fadeInUp {
@@ -380,30 +232,209 @@ if (!file_exists($bgImagePath)) {
             }
         }
         
-        /* Modal Styles */
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.9);
-            z-index: 2000;
-            justify-content: center;
-            align-items: center;
+        .hero-content h1 { 
+            font-size: clamp(2.5rem, 5vw, 4rem); 
+            line-height: 1.2; 
+            margin-bottom: 1.5rem;
+            font-weight: 800;
         }
         
-        .modal.show {
-            display: flex !important;
+        .highlight { color: var(--secondary); }
+        
+        .hero-content p { 
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+            color: var(--text-muted);
         }
+
+        /* --- UI Components --- */
+        .btn { 
+            padding: 0.8rem 2rem; 
+            border-radius: 50px; 
+            text-decoration: none; 
+            font-weight: 600; 
+            transition: 0.3s; 
+            display: inline-block; 
+            border: none; 
+            cursor: pointer; 
+            font-size: 1rem;
+        }
+        
+        .btn-primary { 
+            background: var(--primary); 
+            color: white; 
+            border: 1px solid var(--secondary);
+            box-shadow: 0 4px 15px rgba(30, 58, 138, 0.3);
+        }
+        
+        .btn-primary:hover { 
+            transform: translateY(-3px); 
+            background: var(--secondary); 
+            color: var(--primary);
+            box-shadow: 0 8px 25px rgba(251, 191, 36, 0.4);
+        }
+        
+        .btn-outline {
+            border: 2px solid var(--secondary);
+            color: var(--secondary);
+            background: transparent;
+        }
+        
+        .btn-outline:hover {
+            background: var(--secondary);
+            color: var(--primary);
+            transform: translateY(-3px);
+        }
+        
+        /* Features Section */
+        .features { 
+            padding: 5rem 5%; 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); 
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .section-title {
+            text-align: center;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+        }
+        
+        .section-title::after {
+            content: '';
+            display: block;
+            width: 80px;
+            height: 3px;
+            background: var(--secondary);
+            margin: 1rem auto 0;
+            border-radius: 2px;
+        }
+        
+        .feature-card { 
+            background: var(--glass-bg); 
+            padding: 2rem; 
+            border-radius: 20px; 
+            border: 1px solid rgba(255,255,255,0.1); 
+            transition: 0.3s;
+            text-align: center;
+        }
+        
+        .feature-card:hover { 
+            border-color: var(--secondary); 
+            transform: translateY(-5px);
+            background: rgba(255,255,255,0.12);
+        }
+        
+        .feature-card h3 {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            color: var(--secondary);
+        }
+        
+        .feature-card p {
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+        
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: inline-block;
+        }
+        
+        /* Footer */
+        .footer {
+            background: var(--footer-bg);
+            padding: 3rem 5% 1.5rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            margin-top: 2rem;
+        }
+        
+        .footer-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .footer-section h3 {
+            color: var(--secondary);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        
+        .footer-section p, .footer-section a {
+            color: var(--text-muted);
+            text-decoration: none;
+            display: block;
+            margin-bottom: 0.5rem;
+            transition: 0.3s;
+        }
+        
+        .footer-section a:hover {
+            color: var(--secondary);
+            transform: translateX(5px);
+        }
+        
+        .social-links {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .social-links a {
+            width: 35px;
+            height: 35px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: 0.3s;
+        }
+        
+        .social-links a:hover {
+            background: var(--secondary);
+            transform: translateY(-3px);
+        }
+        
+        .social-links a:hover i {
+            color: var(--primary);
+        }
+        
+        .copyright {
+            text-align: center;
+            padding-top: 2rem;
+            border-top: 1px solid rgba(255,255,255,0.05);
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 2rem;
+        }
+
+        /* --- Login Modal --- */
+        .modal {
+            display: none; 
+            position: fixed; 
+            inset: 0; 
+            background: rgba(0,0,0,0.85); 
+            backdrop-filter: blur(8px);
+            z-index: 2000;
+            align-items: center; 
+            justify-content: center;
+        }
+        
+        .modal.show { display: flex; }
         
         .modal-content {
-            background: var(--bg-dark);
-            padding: 2rem;
+            background: var(--bg-dark); 
+            padding: 2.5rem; 
             border-radius: 20px;
-            width: 90%;
-            max-width: 400px;
+            width: 100%; 
+            max-width: 400px; 
             border: 1px solid var(--secondary);
             position: relative;
             animation: modalSlideIn 0.3s ease;
@@ -420,11 +451,11 @@ if (!file_exists($bgImagePath)) {
             }
         }
         
-        .close-modal {
-            position: absolute;
-            top: 15px;
-            right: 20px;
-            font-size: 1.8rem;
+        .close-modal { 
+            position: absolute; 
+            top: 1rem; 
+            right: 1rem; 
+            font-size: 1.5rem; 
             cursor: pointer;
             color: var(--text-muted);
             transition: 0.3s;
@@ -434,182 +465,193 @@ if (!file_exists($bgImagePath)) {
             color: var(--secondary);
         }
         
-        .modal-content h2 {
-            margin-bottom: 1.5rem;
+        .modal-content h2 { 
+            margin-bottom: 1.5rem; 
             text-align: center;
             color: var(--secondary);
         }
         
-        .modal-content input {
-            width: 100%;
-            padding: 0.8rem;
+        .password-container { 
+            position: relative; 
+            width: 100%; 
             margin-bottom: 1rem;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
-            border-radius: 10px;
-            color: #fff;
-            font-size: 1rem;
-            transition: all 0.3s ease;
         }
         
-        .modal-content input:focus {
+        .password-container input { 
+            width: 100%; 
+            padding: 0.8rem; 
+            border-radius: 10px; 
+            border: 1px solid rgba(255,255,255,0.2); 
+            background: rgba(255,255,255,0.1); 
+            color: white;
+            font-size: 1rem;
+        }
+        
+        .password-container input:focus {
             outline: none;
             border-color: var(--secondary);
-            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
         }
         
-        /* Password Container with Font Awesome Toggle Button */
-        .password-container {
-            position: relative;
-            width: 100%;
-            margin-bottom: 1rem;
-        }
-        
-        .password-container input {
-            width: 100%;
-            padding: 0.8rem;
-            padding-right: 50px;
-            margin-bottom: 0;
-        }
-        
-        .toggle-password {
-            position: absolute;
-            right: 12px;
+        .toggle-password { 
+            position: absolute; 
+            right: 12px; 
             top: 50%;
             transform: translateY(-50%);
-            background: transparent;
-            border: none;
+            background: none; 
+            border: none; 
+            color: var(--text-muted); 
             cursor: pointer;
-            padding: 8px;
-            color: var(--text-muted);
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 50%;
-            font-size: 1.2rem;
-            z-index: 10;
+            font-size: 1.1rem;
         }
         
         .toggle-password:hover {
             color: var(--secondary);
-            background: rgba(255,255,255,0.1);
-            transform: translateY(-50%) scale(1.05);
+        }
+
+        .alert { 
+            padding: 10px; 
+            border-radius: 10px; 
+            margin-bottom: 15px; 
+            font-size: 0.9rem; 
         }
         
-        .toggle-password:active {
-            transform: translateY(-50%) scale(0.95);
-        }
-        
-        .toggle-password i {
-            pointer-events: none;
-            transition: all 0.2s ease;
-        }
-        
-        .modal-content button[type="submit"] {
-            width: 100%;
-            padding: 0.8rem;
-            background: var(--primary);
-            border: none;
-            border-radius: 10px;
-            color: #fff;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-            font-size: 1rem;
-            margin-top: 0.5rem;
-        }
-        
-        .modal-content button[type="submit"]:hover {
-            background: var(--secondary);
-            color: var(--primary);
-        }
-        
-        /* Alert Styles */
-        .alert {
-            padding: 12px 16px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 0.9rem;
-            animation: slideIn 0.3s ease;
-        }
-        
-        .alert-error {
-            background: rgba(255, 68, 68, 0.15);
-            border-left: 4px solid #ff4444;
-            color: #ff8888;
+        .alert-error { 
+            background: rgba(239, 68, 68, 0.2); 
+            color: #fca5a5; 
+            border-left: 4px solid #ef4444; 
         }
         
         .alert-success {
-            background: rgba(0, 196, 154, 0.15);
+            background: rgba(0,196,154,0.2);
             border-left: 4px solid var(--teal-accent);
             color: var(--teal-accent);
         }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+
+        .bg-indicators {
+            position: absolute; 
+            bottom: 30px; 
+            left: 50%; 
+            transform: translateX(-50%);
+            display: flex; 
+            gap: 12px; 
+            z-index: 20;
         }
         
+        .indicator { 
+            width: 10px; 
+            height: 10px; 
+            border-radius: 50%; 
+            background: rgba(255,255,255,0.5); 
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .indicator.active { 
+            background: var(--secondary); 
+            width: 25px; 
+            border-radius: 5px;
+        }
+        
+        .indicator:hover {
+            background: var(--secondary);
+            transform: scale(1.2);
+        }
+        
+        /* Scroll to top button */
+        .scroll-top {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 45px;
+            height: 45px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            z-index: 999;
+            border: 1px solid var(--secondary);
+        }
+        
+        .scroll-top.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .scroll-top:hover {
+            background: var(--secondary);
+            transform: translateY(-3px);
+        }
+        
+        .scroll-top:hover i {
+            color: var(--primary);
+        }
+
         @media (max-width: 768px) {
             .navbar {
                 flex-direction: column;
+                gap: 0.8rem;
+                padding: 0.8rem 5%;
+            }
+            .nav-links {
                 gap: 1rem;
             }
-            .hero::before {
-                background-attachment: scroll;
-            }
-            .hero-content h1 {
+            .hero-content h1 { 
                 font-size: 2rem;
+            }
+            .hero-content p {
+                font-size: 1rem;
             }
             .btn-group {
                 flex-direction: column;
                 align-items: center;
+                gap: 1rem;
             }
-            .modal-content {
-                width: 95%;
-                margin: 1rem;
+            .features {
+                grid-template-columns: 1fr;
+                padding: 3rem 1.5rem;
             }
-            .toggle-password {
-                right: 10px;
-                padding: 6px;
-                font-size: 1rem;
-            }
-            .logo-icon {
-                width: 35px;
-                height: 35px;
-            }
-            .logo-icon i {
-                font-size: 18px;
+            .logo-img {
+                width: 45px;
+                height: 45px;
             }
             .logo-main {
-                font-size: 20px;
+                font-size: 22px;
             }
             .logo-tagline {
-                font-size: 7px;
+                font-size: 8px;
+            }
+            .bg-indicators {
+                bottom: 15px;
+            }
+            .footer-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+            .social-links {
+                justify-content: center;
             }
         }
     </style>
 </head>
 <body>
+
     <nav class="navbar">
-        <div class="logo">
-            <div class="logo-icon">
-                <i class="fas fa-recycle"></i>
-            </div>
+        <a href="#home" class="logo">
+            <?php if($logoExists): ?>
+                <img src="logo.jpeg" alt="WMS Logo" class="logo-img">
+            <?php endif; ?>
             <div class="logo-text">
                 <div class="logo-main">
-                    <span class="eco">Eco</span><span class="waste">Waste</span>
+                    <span class="wms">WMS</span>
                 </div>
-                <div class="logo-tagline">Clean City Initiative</div>
+                <div class="logo-tagline">For Cleaner Communities</div>
             </div>
-        </div>
+        </a>
         <div class="nav-links">
             <a href="#home">Home</a>
             <a href="#features">Features</a>
@@ -621,45 +663,62 @@ if (!file_exists($bgImagePath)) {
     </nav>
 
     <section class="hero" id="home">
+        <div class="hero-bg">
+            <?php if($hasImages): ?>
+                <?php foreach($validImages as $index => $img): ?>
+                    <div class="bg-image <?php echo $index === 0 ? 'active' : ''; ?>" 
+                         style="background-image: url('<?php echo $img; ?>');"></div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="bg-image active" style="background: linear-gradient(135deg, #1e3a8a, #00c49a);"></div>
+            <?php endif; ?>
+        </div>
+        <div class="hero-overlay"></div>
         <div class="hero-content">
-            <h1>Smart Waste Management <br><span class="highlight">For Cleaner Communities</span></h1>
-            <p>Join us in making our environment cleaner and greener. Schedule pickups, track waste, and contribute to sustainability.</p>
+            <h1>Smart Waste Management<br><span class="highlight">For Cleaner Communities</span></h1>
+            <p>Join us in making our environment cleaner and greener. Schedule pickups, track waste, and contribute to a sustainable future.</p>
             <div class="btn-group">
                 <a href="customer/register.php" class="btn btn-primary">Register as Customer</a>
                 <a href="javascript:void(0)" onclick="openLoginModal()" class="btn btn-outline">Login</a>
             </div>
         </div>
+
+        <?php if($hasImages && count($validImages) > 1): ?>
+        <div class="bg-indicators">
+            <?php foreach($validImages as $index => $img): ?>
+                <div class="indicator <?php echo $index === 0 ? 'active' : ''; ?>" onclick="jumpToImage(<?php echo $index; ?>)"></div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
     </section>
 
     <section class="features" id="features">
         <h2 class="section-title">Why Choose Us?</h2>
-        <div class="features-grid">
-            <div class="feature-card">
-                <div class="feature-icon">🗑️</div>
-                <h3>Scheduled Pickups</h3>
-                <p>Schedule waste pickups at your convenience with our easy-to-use system.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">📊</div>
-                <h3>Real-time Tracking</h3>
-                <p>Track your waste collection status and get instant notifications.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">♻️</div>
-                <h3>Eco-Friendly</h3>
-                <p>We prioritize recycling and proper waste disposal methods.</p>
-            </div>
-            <div class="feature-card">
-                <div class="feature-icon">💰</div>
-                <h3>Easy Payments</h3>
-                <p>Secure online payments with digital receipts and history.</p>
-            </div>
+        <div class="feature-card">
+            <div class="feature-icon">🗑️</div>
+            <h3>Scheduled Pickups</h3>
+            <p>Schedule waste pickups at your convenience with our easy-to-use system. Never miss a collection again.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📊</div>
+            <h3>Real-time Tracking</h3>
+            <p>Track your waste collection status and get instant notifications about your scheduled pickups.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">♻️</div>
+            <h3>Eco-Friendly</h3>
+            <p>We prioritize recycling and proper waste disposal methods to protect our environment.</p>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">💰</div>
+            <h3>Easy Payments</h3>
+            <p>Secure online payments with digital receipts and comprehensive payment history.</p>
         </div>
     </section>
 
-    <section class="features" id="about" style="background: var(--footer-bg);">
+    <section id="about" style="background: linear-gradient(135deg, var(--footer-bg), var(--bg-dark)); padding: 4rem 5%;">
         <h2 class="section-title">About Us</h2>
-        <div class="features-grid">
+        <div class="features" style="padding: 0; margin-top: 2rem;">
             <div class="feature-card">
                 <h3>Our Mission</h3>
                 <p>To provide efficient waste management solutions that promote environmental sustainability and community health.</p>
@@ -670,7 +729,7 @@ if (!file_exists($bgImagePath)) {
             </div>
             <div class="feature-card">
                 <h3>Our Team</h3>
-                <p>Dedicated professionals working tirelessly to ensure your waste is managed responsibly.</p>
+                <p>Dedicated professionals working tirelessly to ensure your waste is managed responsibly and efficiently.</p>
             </div>
         </div>
     </section>
@@ -678,8 +737,14 @@ if (!file_exists($bgImagePath)) {
     <footer class="footer" id="contact">
         <div class="footer-content">
             <div class="footer-section">
-                <h3>EcoWaste Management</h3>
+                <h3>WMS Management</h3>
                 <p>Leading the way in sustainable waste management solutions across Rwanda.</p>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-facebook-f"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-linkedin-in"></i></a>
+                    <a href="#"><i class="fab fa-instagram"></i></a>
+                </div>
             </div>
             <div class="footer-section">
                 <h3>Quick Links</h3>
@@ -690,9 +755,9 @@ if (!file_exists($bgImagePath)) {
             </div>
             <div class="footer-section">
                 <h3>Contact Info</h3>
-                <p>📞 +250 788 123 456</p>
-                <p>✉️ info@ecowaste.rw</p>
-                <p>📍 Kigali, Rwanda</p>
+                <p><i class="fas fa-phone"></i> +250 788 123 456</p>
+                <p><i class="fas fa-envelope"></i> info@wms.rw</p>
+                <p><i class="fas fa-map-marker-alt"></i> Kigali, Rwanda</p>
             </div>
             <div class="footer-section">
                 <h3>Working Hours</h3>
@@ -702,15 +767,14 @@ if (!file_exists($bgImagePath)) {
             </div>
         </div>
         <div class="copyright">
-            <p>&copy; 2026 EcoWaste Management System. All rights reserved.</p>
+            <p>&copy; 2026 Waste Management System. All rights reserved. | Designed for Cleaner Communities</p>
         </div>
     </footer>
 
-    <!-- Login Modal with Font Awesome Password Toggle -->
     <div id="loginModal" class="modal <?php echo $showLoginModal ? 'show' : ''; ?>">
         <div class="modal-content">
             <span class="close-modal" onclick="closeLoginModal()">&times;</span>
-            <h2>Login to Account</h2>
+            <h2>Welcome Back!</h2>
             
             <?php if(isset($_GET['error'])): ?>
                 <div class="alert alert-error">
@@ -747,72 +811,75 @@ if (!file_exists($bgImagePath)) {
                     ✅ You have been successfully logged out.
                 </div>
             <?php endif; ?>
-            
-            <form action="authenticate.php" method="POST" id="loginForm">
-                <input type="email" name="email" id="email" placeholder="Email Address" 
-                       value="<?php echo isset($_GET['email']) ? htmlspecialchars($_GET['email']) : ''; ?>" required>
+
+            <form action="authenticate.php" method="POST">
+                <input type="email" name="email" placeholder="Email Address" required 
+                       style="width: 100%; padding: 0.8rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; margin-bottom: 1rem;">
                 
-                <!-- Password field with Font Awesome eye icons -->
                 <div class="password-container">
-                    <input type="password" name="password" id="password" placeholder="Password" required autocomplete="current-password">
-                    <button type="button" class="toggle-password" id="togglePasswordBtn" onclick="togglePassword()">
-                        <i class="fas fa-eye"></i>
+                    <input type="password" name="password" id="loginPass" placeholder="Password" required>
+                    <button type="button" class="toggle-password" onclick="togglePass()">
+                        <i class="fas fa-eye" id="eyeIcon"></i>
                     </button>
                 </div>
                 
-                <button type="submit" id="loginBtn">Login</button>
+                <button type="submit" class="btn btn-primary" style="width: 100%; margin-top: 1rem;">Sign In</button>
             </form>
             
             <p style="text-align: center; margin-top: 1rem;">
-                Don't have an account? <a href="customer/register.php" style="color: var(--secondary);">Register as Customer</a>
+                Don't have an account? <a href="customer/register.php" style="color: var(--secondary);">Register now</a>
             </p>
         </div>
     </div>
 
+    <!-- Scroll to Top Button -->
+    <div class="scroll-top" onclick="window.scrollTo({top: 0, behavior: 'smooth'})">
+        <i class="fas fa-arrow-up"></i>
+    </div>
+
     <script>
-        // Password visibility toggle function with Font Awesome icons
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const toggleBtn = document.getElementById('togglePasswordBtn');
-            const icon = toggleBtn.querySelector('i');
+        // 1. Background Animation Logic
+        let currentIdx = 0;
+        const images = document.querySelectorAll('.bg-image');
+        const indicators = document.querySelectorAll('.indicator');
+
+        function rotateBackground() {
+            if (images.length <= 1) return;
             
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                icon.classList.remove('fa-eye');
-                icon.classList.add('fa-eye-slash');
-                toggleBtn.classList.add('visible');
-            } else {
-                passwordInput.type = 'password';
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-                toggleBtn.classList.remove('visible');
-            }
+            images[currentIdx].classList.remove('active');
+            if(indicators.length) indicators[currentIdx].classList.remove('active');
             
-            passwordInput.focus();
+            currentIdx = (currentIdx + 1) % images.length;
+            
+            images[currentIdx].classList.add('active');
+            if(indicators.length) indicators[currentIdx].classList.add('active');
         }
-        
-        function openLoginModal() {
-            const modal = document.getElementById('loginModal');
-            modal.classList.add('show');
-            setTimeout(() => {
-                document.getElementById('email').focus();
-            }, 100);
-        }
-        
-        function closeLoginModal() {
-            const modal = document.getElementById('loginModal');
-            modal.classList.remove('show');
+
+        function jumpToImage(idx) {
+            images[currentIdx].classList.remove('active');
+            if(indicators.length) indicators[currentIdx].classList.remove('active');
+            currentIdx = idx;
+            images[currentIdx].classList.add('active');
+            if(indicators.length) indicators[currentIdx].classList.add('active');
             
-            const passwordInput = document.getElementById('password');
-            const toggleBtn = document.getElementById('togglePasswordBtn');
-            if (passwordInput && passwordInput.type === 'text') {
-                passwordInput.type = 'password';
-                const icon = toggleBtn.querySelector('i');
-                icon.classList.remove('fa-eye-slash');
-                icon.classList.add('fa-eye');
-                toggleBtn.classList.remove('visible');
+            // Reset timer
+            if(window.rotationInterval) {
+                clearInterval(window.rotationInterval);
+                window.rotationInterval = setInterval(rotateBackground, 20000);
             }
+        }
+
+        // Start rotation - 20 seconds as requested
+        let rotationInterval = setInterval(rotateBackground, 20000);
+
+        // 2. Modal Controls
+        function openLoginModal() { 
+            document.getElementById('loginModal').classList.add('show'); 
+        }
+        function closeLoginModal() { 
+            document.getElementById('loginModal').classList.remove('show'); 
             
+            // Remove error parameters from URL
             if (window.history.pushState) {
                 const url = new URL(window.location.href);
                 url.searchParams.delete('error');
@@ -822,14 +889,31 @@ if (!file_exists($bgImagePath)) {
                 window.history.pushState({}, '', url);
             }
         }
-        
-        window.onclick = function(event) {
+
+        // 3. Password Toggle
+        function togglePass() {
+            const passInput = document.getElementById('loginPass');
+            const icon = document.getElementById('eyeIcon');
+            if (passInput.type === 'password') {
+                passInput.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                passInput.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
+            }
+        }
+
+        // Close modal on outside click
+        window.onclick = function(e) {
             const modal = document.getElementById('loginModal');
-            if (event.target === modal) {
+            if (e.target === modal) {
                 closeLoginModal();
             }
         }
         
+        // Close modal with ESC key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 const modal = document.getElementById('loginModal');
@@ -839,74 +923,36 @@ if (!file_exists($bgImagePath)) {
             }
         });
         
+        // Auto-show modal if there's an error
         <?php if($showLoginModal): ?>
         document.addEventListener('DOMContentLoaded', function() {
             openLoginModal();
         });
         <?php endif; ?>
         
-        const loginForm = document.getElementById('loginForm');
-        if (loginForm) {
-            loginForm.addEventListener('submit', function(e) {
-                const email = document.getElementById('email').value;
-                const password = document.getElementById('password').value;
-                
-                if (!email || !password) {
-                    e.preventDefault();
-                    alert('Please enter both email and password');
-                    return false;
-                }
-                
-                const submitBtn = document.getElementById('loginBtn');
-                submitBtn.innerHTML = '⏳ Logging in...';
-                submitBtn.disabled = true;
-                submitBtn.style.opacity = '0.7';
-            });
-        }
-        
-        const emailInput = document.getElementById('email');
-        const passwordInput = document.getElementById('password');
-        
-        function clearError() {
-            const error = document.querySelector('.alert-error');
-            if (error) {
-                error.style.opacity = '0';
-                setTimeout(() => error.remove(), 300);
-            }
-        }
-        
-        if (emailInput) emailInput.addEventListener('input', clearError);
-        if (passwordInput) passwordInput.addEventListener('input', clearError);
-        
-        document.addEventListener('keydown', function(e) {
-            if ((e.ctrlKey && e.shiftKey && e.key === 'P') || 
-                (e.ctrlKey && e.key === 'p' && !e.shiftKey)) {
-                e.preventDefault();
-                const passwordField = document.getElementById('password');
-                if (passwordField && document.activeElement === passwordField) {
-                    togglePassword();
-                }
+        // Scroll to top button
+        window.addEventListener('scroll', function() {
+            const scrollTop = document.querySelector('.scroll-top');
+            if (window.pageYOffset > 300) {
+                scrollTop.classList.add('show');
+            } else {
+                scrollTop.classList.remove('show');
             }
         });
         
-        let passwordTimer;
-        if (passwordInput) {
-            passwordInput.addEventListener('input', function() {
-                if (passwordInput.type === 'text') {
-                    clearTimeout(passwordTimer);
-                    passwordTimer = setTimeout(() => {
-                        if (passwordInput.type === 'text') {
-                            const toggleBtn = document.getElementById('togglePasswordBtn');
-                            const icon = toggleBtn.querySelector('i');
-                            passwordInput.type = 'password';
-                            icon.classList.remove('fa-eye-slash');
-                            icon.classList.add('fa-eye');
-                            toggleBtn.classList.remove('visible');
-                        }
-                    }, 30000);
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
                 }
             });
-        }
+        });
     </script>
 </body>
 </html>

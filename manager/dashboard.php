@@ -15,12 +15,6 @@ $stmt->execute([$manager_id]);
 $manager = $stmt->fetch();
 
 // Get statistics
-$stmt = $pdo->query("SELECT COUNT(*) as total FROM customer");
-$totalCustomers = $stmt->fetch()['total'];
-
-$stmt = $pdo->query("SELECT COUNT(*) as total FROM orders WHERE DATE(pickup_date) >= CURDATE()");
-$upcomingOrders = $stmt->fetch()['total'];
-
 $stmt = $pdo->query("SELECT COUNT(*) as total FROM orders WHERE DATE(pickup_date) = CURDATE()");
 $todayOrders = $stmt->fetch()['total'];
 
@@ -30,25 +24,13 @@ $activeDrivers = $stmt->fetch()['total'];
 $stmt = $pdo->query("SELECT COUNT(*) as total FROM workers WHERE role = 'collector' AND status = 'active'");
 $activeCollectors = $stmt->fetch()['total'];
 
-$stmt = $pdo->query("SELECT SUM(amount) as total FROM payment WHERE payment_date IS NOT NULL AND payment_date != '0000-00-00'");
-$totalRevenue = $stmt->fetch()['total'] ?? 0;
-
-// Get recent orders
-$stmt = $pdo->query("
-    SELECT o.*, c.firstname, c.lastname, c.phone, c.village 
-    FROM orders o 
-    JOIN customer c ON o.customer_id = c.id 
-    ORDER BY o.id DESC LIMIT 10
-");
-$recentOrders = $stmt->fetchAll();
-
 // Get today's pickups
 $stmt = $pdo->query("
     SELECT o.*, c.firstname, c.lastname, c.phone, c.housenumber, c.village 
     FROM orders o 
     JOIN customer c ON o.customer_id = c.id 
     WHERE DATE(o.pickup_date) = CURDATE()
-    ORDER BY o.pickup_date ASC
+    ORDER BY o.pickup_date ASC LIMIT 5
 ");
 $todayPickups = $stmt->fetchAll();
 
@@ -61,42 +43,13 @@ $stmt = $pdo->query("
     ORDER BY p.id DESC LIMIT 5
 ");
 $pendingPayments = $stmt->fetchAll();
-
-// Get active drivers
-$stmt = $pdo->query("SELECT * FROM workers WHERE role = 'driver' AND status = 'active' LIMIT 5");
-$drivers = $stmt->fetchAll();
-
-// Get active collectors
-$stmt = $pdo->query("SELECT * FROM workers WHERE role = 'collector' AND status = 'active' LIMIT 5");
-$collectors = $stmt->fetchAll();
-
-// Handle order assignment to driver
-if (isset($_POST['assign_driver'])) {
-    $order_id = $_POST['order_id'];
-    $driver_id = $_POST['driver_id'];
-    
-    // Here you would update the order with assigned driver
-    // For now, we'll just show success message
-    $success = "Order #$order_id assigned to driver ID: $driver_id";
-}
-
-// Handle payment collection
-if (isset($_POST['collect_payment'])) {
-    $payment_id = $_POST['payment_id'];
-    $stmt = $pdo->prepare("UPDATE payment SET payment_date = CURDATE() WHERE id = ?");
-    if ($stmt->execute([$payment_id])) {
-        $success = "Payment collected successfully!";
-        header("Location: dashboard.php?success=payment_collected");
-        exit;
-    }
-}
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Manager Dashboard - EcoWaste</title>
+    <title>Manager Dashboard - WMS</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -110,11 +63,7 @@ if (isset($_POST['collect_payment'])) {
             --sidebar-width: 280px;
         }
         
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -123,7 +72,6 @@ if (isset($_POST['collect_payment'])) {
             overflow-x: hidden;
         }
         
-        /* Sidebar */
         .sidebar {
             position: fixed;
             left: 0;
@@ -138,17 +86,60 @@ if (isset($_POST['collect_payment'])) {
             overflow-y: auto;
         }
         
-        .logo {
-            font-size: 1.8rem;
-            font-weight: bold;
-            color: var(--secondary);
-            text-align: center;
-            padding: 2rem 1rem;
+        /* Logo Styles */
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 1.5rem 1rem;
             border-bottom: 1px solid rgba(255,255,255,0.1);
+            text-decoration: none;
+            transition: all 0.3s ease;
         }
         
-        .logo span {
-            color: var(--teal-accent);
+        .logo-container:hover {
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .logo-img {
+            width: 45px;
+            height: 45px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 2px solid var(--teal-accent);
+            transition: all 0.3s ease;
+        }
+        
+        .logo-container:hover .logo-img {
+            transform: scale(1.05);
+            border-color: var(--secondary);
+        }
+        
+        .logo-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+        
+        .logo-main {
+            font-size: 22px;
+            font-weight: 800;
+            letter-spacing: 1px;
+        }
+        
+        .logo-main .wms {
+            background: linear-gradient(135deg, var(--teal-accent), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        
+        .logo-tagline {
+            font-size: 8px;
+            color: var(--text-muted);
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin-top: 2px;
         }
         
         .user-info {
@@ -222,7 +213,6 @@ if (isset($_POST['collect_payment'])) {
             font-size: 1.1rem;
         }
         
-        /* Main Content */
         .main-content {
             margin-left: var(--sidebar-width);
             padding: 2rem;
@@ -260,10 +250,9 @@ if (isset($_POST['collect_payment'])) {
             color: #ff4444;
         }
         
-        /* Stats Cards */
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
             gap: 1.5rem;
             margin-bottom: 2rem;
         }
@@ -299,7 +288,6 @@ if (isset($_POST['collect_payment'])) {
             color: var(--text-muted);
         }
         
-        /* Section Cards */
         .section-card {
             background: rgba(255,255,255,0.05);
             border-radius: 20px;
@@ -317,7 +305,6 @@ if (isset($_POST['collect_payment'])) {
             gap: 10px;
         }
         
-        /* Tables */
         .table-responsive {
             overflow-x: auto;
         }
@@ -345,11 +332,6 @@ if (isset($_POST['collect_payment'])) {
             display: inline-block;
         }
         
-        .status-active {
-            background: rgba(0,196,154,0.2);
-            color: var(--teal-accent);
-        }
-        
         .status-pending {
             background: rgba(255,193,7,0.2);
             color: #ffc107;
@@ -363,8 +345,6 @@ if (isset($_POST['collect_payment'])) {
             display: inline-flex;
             align-items: center;
             gap: 5px;
-            cursor: pointer;
-            border: none;
             transition: 0.3s;
         }
         
@@ -387,39 +367,6 @@ if (isset($_POST['collect_payment'])) {
             background: #00a87e;
         }
         
-        select {
-            padding: 0.3rem;
-            border-radius: 5px;
-            background: rgba(255,255,255,0.1);
-            color: #fff;
-            border: 1px solid rgba(255,255,255,0.2);
-        }
-        
-        .alert {
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-            animation: slideIn 0.3s ease;
-        }
-        
-        .alert-success {
-            background: rgba(0,196,154,0.2);
-            border: 1px solid var(--teal-accent);
-            color: var(--teal-accent);
-        }
-        
-        @keyframes slideIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        
-        /* Responsive */
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -457,7 +404,15 @@ if (isset($_POST['collect_payment'])) {
     </div>
     
     <div class="sidebar" id="sidebar">
-        <div class="logo">Eco<span>Waste</span></div>
+        <a href="../index.php" class="logo-container">
+            <img src="../logo.jpeg" alt="WMS Logo" class="logo-img" onerror="this.src='data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'45\' height=\'45\' viewBox=\'0 0 100 100\'%3E%3Crect width=\'100\' height=\'100\' fill=\'%231e3a8a\' rx=\'12\'/%3E%3Ctext x=\'50\' y=\'70\' font-size=\'48\' text-anchor=\'middle\' fill=\'%23fbbf24\'%3EW%3C/text%3E%3C/svg%3E'">
+            <div class="logo-text">
+                <div class="logo-main">
+                    <span class="wms">WMS</span>
+                </div>
+                <div class="logo-tagline">For Cleaner Communities</div>
+            </div>
+        </a>
         <div class="user-info">
             <div class="user-avatar">
                 <i class="fas fa-chart-line"></i>
@@ -467,12 +422,11 @@ if (isset($_POST['collect_payment'])) {
             <div class="user-role"><i class="fas fa-tasks"></i> Operations Manager</div>
         </div>
         <ul class="nav-menu">
-            <li><a href="#" class="active" onclick="showTab('dashboard'); return false;"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-            <li><a href="#" onclick="showTab('orders'); return false;"><i class="fas fa-clipboard-list"></i> Manage Orders</a></li>
-            <li><a href="#" onclick="showTab('drivers'); return false;"><i class="fas fa-truck"></i> Drivers</a></li>
-            <li><a href="#" onclick="showTab('collectors'); return false;"><i class="fas fa-money-bill-wave"></i> Fee Collectors</a></li>
-            <li><a href="#" onclick="showTab('payments'); return false;"><i class="fas fa-credit-card"></i> Payments</a></li>
-            <li><a href="#" onclick="showTab('reports'); return false;"><i class="fas fa-chart-bar"></i> Reports</a></li>
+            <li><a href="dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li><a href="orders.php"><i class="fas fa-clipboard-list"></i> Manage Orders</a></li>
+            <li><a href="drivers.php"><i class="fas fa-truck"></i> Drivers</a></li>
+            <li><a href="collectors.php"><i class="fas fa-money-bill-wave"></i> Fee Collectors</a></li>
+            <li><a href="reports.php"><i class="fas fa-chart-bar"></i> Reports</a></li>
         </ul>
     </div>
     
@@ -482,277 +436,77 @@ if (isset($_POST['collect_payment'])) {
             <a href="../logout.php" class="logout-btn" onclick="return confirm('Are you sure you want to logout?')"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
         
-        <?php if(isset($_GET['success']) && $_GET['success'] == 'payment_collected'): ?>
-            <div class="alert alert-success">✅ Payment collected successfully!</div>
-        <?php endif; ?>
-        
-        <!-- Dashboard Tab -->
-        <div id="dashboard-tab" class="tab-content active">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-users"></i></div>
-                    <h3>Total Customers</h3>
-                    <div class="stat-number"><?php echo $totalCustomers; ?></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
-                    <h3>Today's Pickups</h3>
-                    <div class="stat-number"><?php echo $todayOrders; ?></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-calendar-week"></i></div>
-                    <h3>Upcoming Pickups</h3>
-                    <div class="stat-number"><?php echo $upcomingOrders; ?></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-truck"></i></div>
-                    <h3>Active Drivers</h3>
-                    <div class="stat-number"><?php echo $activeDrivers; ?></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
-                    <h3>Fee Collectors</h3>
-                    <div class="stat-number"><?php echo $activeCollectors; ?></div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
-                    <h3>Total Revenue</h3>
-                    <div class="stat-number">RWF <?php echo number_format($totalRevenue); ?></div>
-                </div>
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+                <h3>Today's Pickups</h3>
+                <div class="stat-number"><?php echo $todayOrders; ?></div>
             </div>
-            
-            <div class="section-card">
-                <h3 class="section-title"><i class="fas fa-calendar-day"></i> Today's Pickups</h3>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>Order ID</th><th>Customer</th><th>Phone</th><th>Address</th><th>Action</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($todayPickups as $pickup): ?>
-                            <tr>
-                                <td>#<?php echo $pickup['id']; ?></td>
-                                <td><?php echo htmlspecialchars($pickup['firstname'] . ' ' . $pickup['lastname']); ?></td>
-                                <td><?php echo htmlspecialchars($pickup['phone']); ?></td>
-                                <td><?php echo htmlspecialchars($pickup['housenumber'] . ', ' . $pickup['village']); ?></td>
-                                <td>
-                                    <select onchange="assignDriver(<?php echo $pickup['id']; ?>, this.value)">
-                                        <option value="">Assign Driver</option>
-                                        <?php foreach($drivers as $driver): ?>
-                                            <option value="<?php echo $driver['id']; ?>"><?php echo $driver['firstname'] . ' ' . $driver['lastname']; ?></option>
-                                        <?php endforeach; ?>
-                                    </select>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <?php if(count($todayPickups) == 0): ?>
-                            <tr><td colspan="5" style="text-align: center;">No pickups scheduled for today</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-truck"></i></div>
+                <h3>Active Drivers</h3>
+                <div class="stat-number"><?php echo $activeDrivers; ?></div>
             </div>
-            
-            <div class="section-card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                    <h3 class="section-title"><i class="fas fa-clock"></i> Pending Payments</h3>
-                    <a href="#" onclick="showTab('payments'); return false;" class="btn btn-primary">View All</a>
-                </div>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>Payment ID</th><th>Customer</th><th>Phone</th><th>Amount</th><th>Action</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($pendingPayments as $payment): ?>
-                            <tr>
-                                <td>#<?php echo $payment['id']; ?></td>
-                                <td><?php echo htmlspecialchars($payment['firstname'] . ' ' . $payment['lastname']); ?></td>
-                                <td><?php echo htmlspecialchars($payment['phone']); ?></td>
-                                <td>RWF <?php echo number_format($payment['amount']); ?></td>
-                                <td>
-                                    <form method="POST" style="display: inline;">
-                                        <input type="hidden" name="payment_id" value="<?php echo $payment['id']; ?>">
-                                        <button type="submit" name="collect_payment" class="btn btn-success" onclick="return confirm('Mark this payment as collected?')">
-                                            <i class="fas fa-check"></i> Collect
-                                        </button>
-                                    </form>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                            <?php if(count($pendingPayments) == 0): ?>
-                            <tr><td colspan="5" style="text-align: center;">No pending payments</td></tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-money-bill-wave"></i></div>
+                <h3>Fee Collectors</h3>
+                <div class="stat-number"><?php echo $activeCollectors; ?></div>
             </div>
         </div>
         
-        <!-- Orders Tab -->
-        <div id="orders-tab" class="tab-content">
-            <div class="section-card">
-                <h3 class="section-title"><i class="fas fa-clipboard-list"></i> All Orders</h3>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>Order ID</th><th>Customer</th><th>Pickup Date</th><th>Status</th><th>Payment</th><th>Action</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($recentOrders as $order): 
-                                $order_date = strtotime($order['pickup_date']);
-                                $today = strtotime(date('Y-m-d'));
-                                if ($order_date == $today) {
-                                    $status = 'Today';
-                                    $status_class = 'status-pending';
-                                } elseif ($order_date > $today) {
-                                    $status = 'Upcoming';
-                                    $status_class = 'status-active';
-                                } else {
-                                    $status = 'Completed';
-                                    $status_class = 'status-pending';
-                                }
-                            ?>
-                            <tr>
-                                <td>#<?php echo $order['id']; ?></td>
-                                <td><?php echo htmlspecialchars($order['firstname'] . ' ' . $order['lastname']); ?></td>
-                                <td><?php echo date('M j, Y', strtotime($order['pickup_date'])); ?></td>
-                                <td><span class="status-badge <?php echo $status_class; ?>"><?php echo $status; ?></span></td>
-                                <td><span class="status-badge status-pending">Pending</span></td>
-                                <td>
-                                    <button class="btn btn-primary" onclick="viewOrder(<?php echo $order['id']; ?>)">
-                                        <i class="fas fa-eye"></i> View
+        <div class="section-card">
+            <h3 class="section-title"><i class="fas fa-calendar-day"></i> Today's Pickups</h3>
+            <div class="table-responsive">
+                <table>
+                    <thead>
+                        <tr><th>Order ID</th><th>Customer</th><th>Phone</th><th>Address</th></tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($todayPickups as $pickup): ?>
+                        <tr>
+                            <td>#<?php echo $pickup['id']; ?></td>
+                            <td><?php echo htmlspecialchars($pickup['firstname'] . ' ' . $pickup['lastname']); ?></td>
+                            <td><?php echo htmlspecialchars($pickup['phone']); ?></td>
+                            <td><?php echo htmlspecialchars($pickup['housenumber'] . ', ' . $pickup['village']); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if(count($todayPickups) == 0): ?>
+                        <tr><td colspan="4" style="text-align: center;">No pickups scheduled for today</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="section-card">
+            <h3 class="section-title"><i class="fas fa-clock"></i> Pending Payments</h3>
+            <div class="table-responsive">
+                 <table>
+                    <thead>
+                        <tr><th>Payment ID</th><th>Customer</th><th>Phone</th><th>Amount</th><th>Action</th> </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach($pendingPayments as $payment): ?>
+                         <tr>
+                            <td>#<?php echo $payment['id']; ?></td>
+                            <td><?php echo htmlspecialchars($payment['firstname'] . ' ' . $payment['lastname']); ?></td>
+                            <td><?php echo htmlspecialchars($payment['phone']); ?></td>
+                            <td>RWF <?php echo number_format($payment['amount']); ?></td>
+                            <td>
+                                <form method="POST" style="display: inline;">
+                                    <input type="hidden" name="payment_id" value="<?php echo $payment['id']; ?>">
+                                    <button type="submit" name="collect_payment" class="btn btn-success" onclick="return confirm('Mark this payment as collected?')">
+                                        <i class="fas fa-check"></i> Collect
                                     </button>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Drivers Tab -->
-        <div id="drivers-tab" class="tab-content">
-            <div class="section-card">
-                <h3 class="section-title"><i class="fas fa-truck"></i> Active Drivers</h3>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Status</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($drivers as $driver): ?>
-                            <tr>
-                                <td>#<?php echo $driver['id']; ?></td>
-                                <td><?php echo htmlspecialchars($driver['firstname'] . ' ' . $driver['lastname']); ?></td>
-                                <td><?php echo htmlspecialchars($driver['phone']); ?></td>
-                                <td><?php echo htmlspecialchars($driver['email']); ?></td>
-                                <td><span class="status-badge status-active">Active</span></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Collectors Tab -->
-        <div id="collectors-tab" class="tab-content">
-            <div class="section-card">
-                <h3 class="section-title"><i class="fas fa-money-bill-wave"></i> Fee Collectors</h3>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>ID</th><th>Name</th><th>Phone</th><th>Email</th><th>Status</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($collectors as $collector): ?>
-                            <tr>
-                                <td>#<?php echo $collector['id']; ?></td>
-                                <td><?php echo htmlspecialchars($collector['firstname'] . ' ' . $collector['lastname']); ?></td>
-                                <td><?php echo htmlspecialchars($collector['phone']); ?></td>
-                                <td><?php echo htmlspecialchars($collector['email']); ?></td>
-                                <td><span class="status-badge status-active">Active</span></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Payments Tab -->
-        <div id="payments-tab" class="tab-content">
-            <div class="section-card">
-                <h3 class="section-title"><i class="fas fa-credit-card"></i> Payment History</h3>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>Payment ID</th><th>Customer</th><th>Order ID</th><th>Amount</th><th>Date</th><th>Status</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            $stmt = $pdo->query("
-                                SELECT p.*, c.firstname, c.lastname 
-                                FROM payment p 
-                                JOIN customer c ON p.customer_id = c.id 
-                                ORDER BY p.id DESC LIMIT 20
-                            ");
-                            while($payment = $stmt->fetch()):
-                            ?>
-                            <tr>
-                                <td>#<?php echo $payment['id']; ?></td>
-                                <td><?php echo htmlspecialchars($payment['firstname'] . ' ' . $payment['lastname']); ?></td>
-                                <td>#<?php echo $payment['order_id']; ?></td>
-                                <td>RWF <?php echo number_format($payment['amount']); ?></td>
-                                <td><?php echo $payment['payment_date'] && $payment['payment_date'] != '0000-00-00' ? date('M j, Y', strtotime($payment['payment_date'])) : 'Pending'; ?></td>
-                                <td><span class="status-badge <?php echo ($payment['payment_date'] && $payment['payment_date'] != '0000-00-00') ? 'status-active' : 'status-pending'; ?>">
-                                    <?php echo ($payment['payment_date'] && $payment['payment_date'] != '0000-00-00') ? 'Paid' : 'Pending'; ?>
-                                </span></td>
-                            </tr>
-                            <?php endwhile; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Reports Tab -->
-        <div id="reports-tab" class="tab-content">
-            <div class="section-card">
-                <h3 class="section-title"><i class="fas fa-chart-bar"></i> Daily Reports</h3>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr><th>Date</th><th>Orders</th><th>Revenue</th><th>Pending Payments</th> </tr>
-                        </thead>
-                        <tbody>
-                            <?php
-                            $stmt = $pdo->query("
-                                SELECT 
-                                    DATE(o.pickup_date) as date,
-                                    COUNT(o.id) as total_orders,
-                                    SUM(CASE WHEN p.payment_date IS NOT NULL THEN p.amount ELSE 0 END) as collected,
-                                    SUM(CASE WHEN p.payment_date IS NULL THEN p.amount ELSE 0 END) as pending
-                                FROM orders o
-                                LEFT JOIN payment p ON o.id = p.order_id
-                                WHERE o.pickup_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-                                GROUP BY DATE(o.pickup_date)
-                                ORDER BY date DESC
-                            ");
-                            while($report = $stmt->fetch()):
-                            ?>
-                            <tr>
-                                <td><?php echo date('M j, Y', strtotime($report['date'])); ?></td>
-                                <td><?php echo $report['total_orders']; ?></td>
-                                <td>RWF <?php echo number_format($report['collected']); ?></td>
-                                <td>RWF <?php echo number_format($report['pending']); ?></td>
-                            </tr>
-                            <?php endwhile; ?>
-                        </tbody>
-                    </table>
-                </div>
+                                </form>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php if(count($pendingPayments) == 0): ?>
+                        <tr><td colspan="5" style="text-align: center;">No pending payments</td></tr>
+                        <?php endif; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -762,38 +516,6 @@ if (isset($_POST['collect_payment'])) {
             document.getElementById('sidebar').classList.toggle('show');
         }
         
-        function showTab(tabName) {
-            // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
-                tab.classList.remove('active');
-            });
-            
-            // Show selected tab
-            document.getElementById(tabName + '-tab').classList.add('active');
-            
-            // Update active menu item
-            document.querySelectorAll('.nav-menu a').forEach(link => {
-                link.classList.remove('active');
-            });
-            
-            // Set active class on clicked link
-            event.currentTarget.classList.add('active');
-        }
-        
-        function assignDriver(orderId, driverId) {
-            if (driverId) {
-                if (confirm(`Assign order #${orderId} to this driver?`)) {
-                    // Here you would submit an AJAX request or form
-                    alert(`Order #${orderId} assigned to driver ID: ${driverId}`);
-                }
-            }
-        }
-        
-        function viewOrder(orderId) {
-            alert(`Viewing order #${orderId} details`);
-        }
-        
-        // Close sidebar when clicking outside on mobile
         document.addEventListener('click', function(event) {
             const sidebar = document.getElementById('sidebar');
             const menuToggle = document.querySelector('.menu-toggle');
@@ -803,14 +525,6 @@ if (isset($_POST['collect_payment'])) {
                 }
             }
         });
-        
-        // Auto-hide alerts after 5 seconds
-        setTimeout(() => {
-            document.querySelectorAll('.alert').forEach(alert => {
-                alert.style.opacity = '0';
-                setTimeout(() => alert.remove(), 300);
-            });
-        }, 5000);
     </script>
 </body>
 </html>
