@@ -375,22 +375,22 @@ if (isset($_POST['update_profile'])) {
         .form-group label {
             display: block;
             margin-bottom: 0.5rem;
-            color: var(--text-muted);
+            color: var(--primary: #ffffff;);
         }
         
         .form-group input, .form-group select, .form-group textarea {
             width: 100%;
             padding: 0.8rem;
-            background: rgba(255,255,255,0.1);
-            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(26, 2, 133, 0.1);
+            border: 1px solid rgba(240, 227, 227, 0.7);
             border-radius: 10px;
-            color: #fff;
+            color: #4030ed;
             font-size: 1rem;
         }
         
         .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
             outline: none;
-            border-color: var(--secondary);
+            border-color: var(--primary);
         }
         
         .btn {
@@ -661,10 +661,13 @@ if (isset($_POST['update_profile'])) {
                     </div>
                     <div class="form-group">
                         <label>Waste Type</label>
-                        <select name="waste_type" disabled style="opacity: 0.7;">
+                        <select name="waste_type">
                             <option>General Waste (Default)</option>
                             <option>Recyclable Waste</option>
                             <option>Organic Waste</option>
+                            <option>Electronic Waste</option>
+                            <option>Hazardous Waste</option>
+                            
                         </select>
                         <small style="color: var(--text-muted);">Default fee: RWF 5,000 per pickup</small>
                     </div>
