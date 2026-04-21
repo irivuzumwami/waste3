@@ -95,8 +95,8 @@ $hasImages = count($validImages) > 0;
         }
         
         .logo-img {
-            width: 55px;
-            height: 55px;
+            width: 90px;
+            height: 90px;
             object-fit: cover;
             border-radius: 12px;
             border: 2px solid var(--teal-accent);
@@ -598,7 +598,8 @@ $hasImages = count($validImages) > 0;
                 padding: 0.8rem 5%;
             }
             .nav-links {
-                gap: 1rem;
+                gap: 5px;
+                font-size: 12px;
             }
             .hero-content h1 { 
                 font-size: 2rem;
@@ -626,7 +627,7 @@ $hasImages = count($validImages) > 0;
                 font-size: 8px;
             }
             .bg-indicators {
-                bottom: 15px;
+                bottom: 5px;
             }
             .footer-content {
                 grid-template-columns: 1fr;
