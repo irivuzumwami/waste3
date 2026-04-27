@@ -38,6 +38,9 @@ foreach ($backgroundImages as $image) {
 $logoPath = 'logo.jpeg';
 $logoExists = file_exists(__DIR__ . '/' . $logoPath);
 $hasImages = count($validImages) > 0;
+
+// Get theme preference from cookie or default to dark
+$theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -47,6 +50,7 @@ $hasImages = count($validImages) > 0;
     <title>WMS | Smart Waste Management System</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* Light Mode Variables - Reduced Opacity for Less Shining */
         :root {
             --primary: #1e3a8a;
             --secondary: #fbbf24;
@@ -55,6 +59,31 @@ $hasImages = count($validImages) > 0;
             --footer-bg: #0b1120;
             --text-muted: #94a3b8;
             --teal-accent: #00c49a;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --border-color: rgba(255, 255, 255, 0.1);
+            --input-bg: rgba(255, 255, 255, 0.1);
+            --input-border: rgba(255, 255, 255, 0.2);
+            --text-color: #fff;
+            --navbar-bg: rgba(15, 23, 42, 0.9);
+            --hero-overlay-dark: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(15,23,42,0.85));
+        }
+        
+        /* Light Mode Styles - Reduced Opacity (Less Shining) */
+        body.light-mode {
+            --primary: #1e3a8a;
+            --secondary: #d4a017;
+            --glass-bg: rgba(255, 255, 255, 0.02);
+            --bg-dark: #e8eef3;
+            --footer-bg: #dce3ec;
+            --text-muted: #5a6e8a;
+            --teal-accent: #00875a;
+            --card-bg: rgba(255, 255, 255, 0.7);
+            --border-color: rgba(0, 0, 0, 0.08);
+            --input-bg: rgba(255, 255, 255, 0.9);
+            --input-border: rgba(0, 0, 0, 0.15);
+            --text-color: #2c3e50;
+            --navbar-bg: rgba(255, 255, 255, 0.92);
+            --hero-overlay-dark: linear-gradient(135deg, rgba(200, 210, 220, 0.5), rgba(230, 240, 250, 0.6));
         }
         
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -62,13 +91,14 @@ $hasImages = count($validImages) > 0;
         body {
             font-family: 'Segoe UI', system-ui, sans-serif;
             background: var(--bg-dark);
-            color: #fff;
+            color: var(--text-color);
             overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
 
-        /* --- Navbar & Logo - Enhanced --- */
+        /* --- Navbar & Logo --- */
         .navbar {
-            background: rgba(15, 23, 42, 0.9);
+            background: var(--navbar-bg);
             backdrop-filter: blur(12px);
             position: fixed;
             width: 100%;
@@ -78,7 +108,8 @@ $hasImages = count($validImages) > 0;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.1);
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.3s ease;
         }
 
         .logo { 
@@ -135,9 +166,33 @@ $hasImages = count($validImages) > 0;
             margin-top: 2px;
         }
 
+        /* Theme Toggle Button */
+        .theme-toggle {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 50px;
+            padding: 0.5rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            color: var(--text-color);
+        }
+        
+        .theme-toggle:hover {
+            background: var(--secondary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .theme-toggle i {
+            font-size: 1rem;
+        }
+
         .nav-links { display: flex; gap: 2rem; align-items: center; }
         .nav-links a { 
-            color: #fff; 
+            color: var(--text-color); 
             text-decoration: none; 
             font-weight: 500; 
             transition: 0.3s;
@@ -166,16 +221,17 @@ $hasImages = count($validImages) > 0;
             padding: 0.5rem 1.5rem;
             border-radius: 50px;
             border: 1px solid var(--secondary);
-        }
-        
-        .btn-login::after {
-            display: none;
+            color: #fff;
         }
         
         .btn-login:hover {
             background: var(--secondary);
             color: var(--primary);
             transform: translateY(-2px);
+        }
+        
+        .btn-login::after {
+            display: none;
         }
 
         /* --- Hero & Background Animation --- */
@@ -209,10 +265,10 @@ $hasImages = count($validImages) > 0;
         .hero-overlay {
             position: absolute;
             inset: 0;
-            background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(15,23,42,0.85));
+            background: var(--hero-overlay-dark);
             z-index: 1;
         }
-
+        
         .hero-content { 
             position: relative; 
             z-index: 10; 
@@ -239,13 +295,14 @@ $hasImages = count($validImages) > 0;
             font-weight: 800;
         }
         
-        .highlight { color: var(--secondary); }
-        
-        .hero-content p { 
+        .hero-content h4 {
             font-size: 1.2rem;
             margin-bottom: 2rem;
             color: var(--text-muted);
+            font-weight: normal;
         }
+        
+        .highlight { color: var(--secondary); }
 
         /* --- UI Components --- */
         .btn { 
@@ -314,10 +371,11 @@ $hasImages = count($validImages) > 0;
         }
         
         .feature-card { 
-            background: var(--glass-bg); 
+            background: var(--card-bg); 
+            backdrop-filter: blur(8px);
             padding: 2rem; 
             border-radius: 20px; 
-            border: 1px solid rgba(255,255,255,0.1); 
+            border: 1px solid var(--border-color); 
             transition: 0.3s;
             text-align: center;
         }
@@ -325,7 +383,7 @@ $hasImages = count($validImages) > 0;
         .feature-card:hover { 
             border-color: var(--secondary); 
             transform: translateY(-5px);
-            background: rgba(255,255,255,0.12);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
         }
         
         .feature-card h3 {
@@ -349,8 +407,9 @@ $hasImages = count($validImages) > 0;
         .footer {
             background: var(--footer-bg);
             padding: 3rem 5% 1.5rem;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid var(--border-color);
             margin-top: 2rem;
+            transition: background 0.3s ease;
         }
         
         .footer-content {
@@ -389,12 +448,16 @@ $hasImages = count($validImages) > 0;
         .social-links a {
             width: 35px;
             height: 35px;
-            background: rgba(255,255,255,0.1);
+            background: rgba(0,0,0,0.08);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: 0.3s;
+        }
+        
+        body.light-mode .social-links a {
+            background: rgba(0,0,0,0.05);
         }
         
         .social-links a:hover {
@@ -409,7 +472,7 @@ $hasImages = count($validImages) > 0;
         .copyright {
             text-align: center;
             padding-top: 2rem;
-            border-top: 1px solid rgba(255,255,255,0.05);
+            border-top: 1px solid var(--border-color);
             color: var(--text-muted);
             font-size: 0.9rem;
             margin-top: 2rem;
@@ -427,10 +490,15 @@ $hasImages = count($validImages) > 0;
             justify-content: center;
         }
         
+        body.light-mode .modal {
+            background: rgba(0,0,0,0.4);
+        }
+        
         .modal.show { display: flex; }
         
         .modal-content {
-            background: var(--bg-dark); 
+            background: var(--card-bg); 
+            backdrop-filter: blur(10px);
             padding: 2.5rem; 
             border-radius: 20px;
             width: 100%; 
@@ -481,9 +549,9 @@ $hasImages = count($validImages) > 0;
             width: 100%; 
             padding: 0.8rem; 
             border-radius: 10px; 
-            border: 1px solid rgba(255,255,255,0.2); 
-            background: rgba(255,255,255,0.1); 
-            color: white;
+            border: 1px solid var(--input-border); 
+            background: var(--input-bg); 
+            color: var(--text-color);
             font-size: 1rem;
         }
         
@@ -546,6 +614,10 @@ $hasImages = count($validImages) > 0;
             transition: all 0.3s ease;
         }
         
+        body.light-mode .indicator {
+            background: rgba(0,0,0,0.2);
+        }
+        
         .indicator.active { 
             background: var(--secondary); 
             width: 25px; 
@@ -594,17 +666,19 @@ $hasImages = count($validImages) > 0;
         @media (max-width: 768px) {
             .navbar {
                 flex-direction: column;
-                gap: 0.8rem;
+                gap: 10px;
                 padding: 0.8rem 5%;
             }
             .nav-links {
-                gap: 1rem;
+                gap: 10px;
+                flex-wrap: wrap;
+                justify-content: center;
             }
             .hero-content h1 { 
                 font-size: 2rem;
             }
-            .hero-content p {
-                font-size: 1rem;
+            .hero-content h4 {
+                font-size: 0.9rem;
             }
             .btn-group {
                 flex-direction: column;
@@ -620,10 +694,10 @@ $hasImages = count($validImages) > 0;
                 height: 45px;
             }
             .logo-main {
-                font-size: 22px;
+                font-size: 20px;
             }
             .logo-tagline {
-                font-size: 8px;
+                font-size: 7px;
             }
             .bg-indicators {
                 bottom: 15px;
@@ -635,10 +709,13 @@ $hasImages = count($validImages) > 0;
             .social-links {
                 justify-content: center;
             }
+            .theme-toggle span {
+                display: none;
+            }
         }
     </style>
 </head>
-<body>
+<body class="<?php echo $theme == 'light' ? 'light-mode' : ''; ?>">
 
     <nav class="navbar">
         <a href="#home" class="logo">
@@ -657,6 +734,10 @@ $hasImages = count($validImages) > 0;
             <a href="#features">Features</a>
             <a href="#about">About</a>
             <a href="#contact">Contact</a>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <i class="fas <?php echo $theme == 'light' ? 'fa-moon' : 'fa-sun'; ?>"></i>
+                <span><?php echo $theme == 'light' ? 'Dark Mode' : 'Light Mode'; ?></span>
+            </button>
             <a href="javascript:void(0)" onclick="openLoginModal()" class="btn-login">Login</a>
             <a href="customer/register.php" style="background: var(--teal-accent); padding: 0.5rem 1.5rem; border-radius: 50px;">Register</a>
         </div>
@@ -676,7 +757,7 @@ $hasImages = count($validImages) > 0;
         <div class="hero-overlay"></div>
         <div class="hero-content">
             <h1>Smart Waste Management<br><span class="highlight">For Cleaner Communities</span></h1>
-            <p>Join us in making our environment cleaner and greener. Schedule pickups, track waste, and contribute to a sustainable future.</p>
+            <h4>Join us in making our environment cleaner and greener. Schedule pickups, track waste, and contribute to a sustainable future.</h4>
             <div class="btn-group">
                 <a href="customer/register.php" class="btn btn-primary">Register as Customer</a>
                 <a href="javascript:void(0)" onclick="openLoginModal()" class="btn btn-outline">Login</a>
@@ -691,9 +772,9 @@ $hasImages = count($validImages) > 0;
         </div>
         <?php endif; ?>
     </section>
-
+    
+    <h2 class="section-title">Why Choose Us?</h2>
     <section class="features" id="features">
-        <h2 class="section-title">Why Choose Us?</h2>
         <div class="feature-card">
             <div class="feature-icon">🗑️</div>
             <h3>Scheduled Pickups</h3>
@@ -814,7 +895,7 @@ $hasImages = count($validImages) > 0;
 
             <form action="authenticate.php" method="POST">
                 <input type="email" name="email" placeholder="Email Address" required 
-                       style="width: 100%; padding: 0.8rem; border-radius: 10px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.1); color: white; margin-bottom: 1rem;">
+                       style="width: 100%; padding: 0.8rem; border-radius: 10px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-color); margin-bottom: 1rem;">
                 
                 <div class="password-container">
                     <input type="password" name="password" id="loginPass" placeholder="Password" required>
@@ -838,6 +919,28 @@ $hasImages = count($validImages) > 0;
     </div>
 
     <script>
+        // Theme Toggle Function
+        function toggleTheme() {
+            const body = document.body;
+            const themeToggle = document.querySelector('.theme-toggle');
+            const icon = themeToggle.querySelector('i');
+            const span = themeToggle.querySelector('span');
+            
+            if (body.classList.contains('light-mode')) {
+                body.classList.remove('light-mode');
+                icon.classList.remove('fa-moon');
+                icon.classList.add('fa-sun');
+                span.textContent = 'Light Mode';
+                document.cookie = "theme=dark; path=/; max-age=" + (60*60*24*365);
+            } else {
+                body.classList.add('light-mode');
+                icon.classList.remove('fa-sun');
+                icon.classList.add('fa-moon');
+                span.textContent = 'Dark Mode';
+                document.cookie = "theme=light; path=/; max-age=" + (60*60*24*365);
+            }
+        }
+        
         // 1. Background Animation Logic
         let currentIdx = 0;
         const images = document.querySelectorAll('.bg-image');
@@ -862,14 +965,12 @@ $hasImages = count($validImages) > 0;
             images[currentIdx].classList.add('active');
             if(indicators.length) indicators[currentIdx].classList.add('active');
             
-            // Reset timer
             if(window.rotationInterval) {
                 clearInterval(window.rotationInterval);
                 window.rotationInterval = setInterval(rotateBackground, 20000);
             }
         }
 
-        // Start rotation - 20 seconds as requested
         let rotationInterval = setInterval(rotateBackground, 20000);
 
         // 2. Modal Controls
@@ -879,7 +980,6 @@ $hasImages = count($validImages) > 0;
         function closeLoginModal() { 
             document.getElementById('loginModal').classList.remove('show'); 
             
-            // Remove error parameters from URL
             if (window.history.pushState) {
                 const url = new URL(window.location.href);
                 url.searchParams.delete('error');
@@ -905,7 +1005,6 @@ $hasImages = count($validImages) > 0;
             }
         }
 
-        // Close modal on outside click
         window.onclick = function(e) {
             const modal = document.getElementById('loginModal');
             if (e.target === modal) {
@@ -913,7 +1012,6 @@ $hasImages = count($validImages) > 0;
             }
         }
         
-        // Close modal with ESC key
         document.addEventListener('keydown', function(e) {
             if (e.key === 'Escape') {
                 const modal = document.getElementById('loginModal');
@@ -923,14 +1021,12 @@ $hasImages = count($validImages) > 0;
             }
         });
         
-        // Auto-show modal if there's an error
         <?php if($showLoginModal): ?>
         document.addEventListener('DOMContentLoaded', function() {
             openLoginModal();
         });
         <?php endif; ?>
         
-        // Scroll to top button
         window.addEventListener('scroll', function() {
             const scrollTop = document.querySelector('.scroll-top');
             if (window.pageYOffset > 300) {
@@ -940,7 +1036,6 @@ $hasImages = count($validImages) > 0;
             }
         });
         
-        // Smooth scroll for anchor links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
             anchor.addEventListener('click', function (e) {
                 e.preventDefault();
