@@ -849,7 +849,7 @@ if (isset($_POST['update_collector_status'])) {
             <div class="section-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                     <h3 class="section-title"><i class="fas fa-truck"></i> Registered Drivers</h3>
-                    <a href="../admin/add_driver.php" class="btn btn-primary">Add New Driver</a>
+                    <a href="../driver/register.php" class="btn btn-primary">Add New Driver</a>
                 </div>
                 <div class="table-responsive">
                     <table>

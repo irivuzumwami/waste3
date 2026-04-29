@@ -37,6 +37,76 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute();
 $recent_collections = $stmt->fetchAll();
+
+// Get today's collections
+$stmt = $pdo->prepare("
+    SELECT p.*, c.firstname, c.lastname, c.phone, c.village
+    FROM payment p 
+    JOIN customer c ON p.customer_id = c.id 
+    WHERE DATE(p.payment_date) = CURDATE() AND p.payment_date != '0000-00-00'
+    ORDER BY p.payment_date DESC
+");
+$stmt->execute();
+$today_collections = $stmt->fetchAll();
+
+// Get total collected amount (fixed - removed collected_by column)
+$stmt = $pdo->prepare("
+    SELECT SUM(amount) as total FROM payment 
+    WHERE payment_date IS NOT NULL AND payment_date != '0000-00-00'
+");
+$stmt->execute();
+$total_collected = $stmt->fetch()['total'] ?? 0;
+
+// Handle profile update
+if (isset($_POST['update_profile'])) {
+    $firstname = $_POST['firstname'];
+    $lastname = $_POST['lastname'];
+    $phone = $_POST['phone'];
+    $gender = $_POST['gender'];
+    
+    $stmt = $pdo->prepare("UPDATE workers SET firstname=?, lastname=?, phone=?, gender=? WHERE id=? AND role='collector'");
+    if ($stmt->execute([$firstname, $lastname, $phone, $gender, $collector_id])) {
+        $profile_success = "Profile updated successfully!";
+        // Refresh collector data
+        $stmt = $pdo->prepare("SELECT * FROM workers WHERE id = ? AND role = 'collector'");
+        $stmt->execute([$collector_id]);
+        $collector = $stmt->fetch();
+    } else {
+        $profile_error = "Failed to update profile. Please try again.";
+    }
+}
+
+// Handle password change
+if (isset($_POST['change_password'])) {
+    $current_password = $_POST['current_password'];
+    $new_password = $_POST['new_password'];
+    $confirm_password = $_POST['confirm_password'];
+    
+    if ($collector['password'] != $current_password) {
+        $password_error = "Current password is incorrect!";
+    } elseif (strlen($new_password) < 6) {
+        $password_error = "New password must be at least 6 characters long!";
+    } elseif ($new_password != $confirm_password) {
+        $password_error = "New passwords do not match!";
+    } else {
+        $stmt = $pdo->prepare("UPDATE workers SET password = ? WHERE id = ?");
+        if ($stmt->execute([$new_password, $collector_id])) {
+            $password_success = "Password changed successfully!";
+        } else {
+            $password_error = "Failed to change password. Please try again.";
+        }
+    }
+}
+
+// Handle payment collection (fixed - removed collected_by column)
+if (isset($_POST['collect_payment'])) {
+    $payment_id = $_POST['payment_id'];
+    $stmt = $pdo->prepare("UPDATE payment SET payment_date = CURDATE() WHERE id = ?");
+    if ($stmt->execute([$payment_id])) {
+        header("Location: dashboard.php?success=collected");
+        exit;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -194,6 +264,7 @@ $recent_collections = $stmt->fetchAll();
             text-decoration: none;
             transition: 0.3s;
             border-left: 3px solid transparent;
+            cursor: pointer;
         }
         
         .nav-menu a:hover, .nav-menu a.active {
@@ -355,6 +426,136 @@ $recent_collections = $stmt->fetchAll();
             transform: scale(1.05);
         }
         
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            border: 1px solid var(--secondary);
+            padding: 0.8rem 1.5rem;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        
+        .btn-primary:hover {
+            background: var(--secondary);
+            color: var(--primary);
+            transform: translateY(-2px);
+        }
+        
+        .form-group {
+            margin-bottom: 1rem;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.8rem;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 10px;
+            color: #fff;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+        
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+        }
+        
+        .row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        
+        .alert {
+            padding: 1rem;
+            border-radius: 10px;
+            margin-bottom: 1rem;
+            animation: slideIn 0.3s ease;
+        }
+        
+        .alert-success {
+            background: rgba(0,196,154,0.2);
+            border: 1px solid var(--teal-accent);
+            color: var(--teal-accent);
+        }
+        
+        .alert-error {
+            background: rgba(255,68,68,0.2);
+            border: 1px solid #ff4444;
+            color: #ff8888;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .password-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        .password-container input {
+            width: 100%;
+            padding: 0.8rem;
+            padding-right: 45px;
+        }
+        
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            padding: 8px;
+            color: var(--text-muted);
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-size: 1.1rem;
+            z-index: 10;
+        }
+        
+        .toggle-password:hover {
+            color: var(--secondary);
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
@@ -378,6 +579,9 @@ $recent_collections = $stmt->fetchAll();
             }
             .stats-grid {
                 grid-template-columns: repeat(2, 1fr);
+            }
+            .row {
+                grid-template-columns: 1fr;
             }
         }
         
@@ -410,9 +614,9 @@ $recent_collections = $stmt->fetchAll();
             <div class="user-role"><i class="fas fa-id-card"></i> Fee Collector</div>
         </div>
         <ul class="nav-menu">
-            <li><a href="dashboard.php" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-            <li><a href="collections.php"><i class="fas fa-history"></i> Collections</a></li>
-            <li><a href="profile.php"><i class="fas fa-user"></i> My Profile</a></li>
+            <li><a onclick="showTab('dashboard')" class="active"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+            <li><a onclick="showTab('collections')"><i class="fas fa-history"></i> Collections</a></li>
+            <li><a onclick="showTab('profile')"><i class="fas fa-user"></i> My Profile</a></li>
         </ul>
     </div>
     
@@ -422,95 +626,253 @@ $recent_collections = $stmt->fetchAll();
             <a href="../logout.php" class="logout-btn" onclick="return confirm('Are you sure you want to logout?')"><i class="fas fa-sign-out-alt"></i> Logout</a>
         </div>
         
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-clock"></i></div>
-                <h3>Pending Payments</h3>
-                <div class="stat-number"><?php echo count($pending_payments); ?></div>
+        <?php if(isset($_GET['success']) && $_GET['success'] == 'collected'): ?>
+            <div class="alert alert-success">✅ Payment collected successfully!</div>
+            <script>setTimeout(() => document.querySelector('.alert')?.remove(), 3000);</script>
+        <?php endif; ?>
+        
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                    <h3>Pending Payments</h3>
+                    <div class="stat-number"><?php echo count($pending_payments); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                    <h3>Today's Collections</h3>
+                    <div class="stat-number"><?php echo count($today_collections); ?></div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon"><i class="fas fa-dollar-sign"></i></div>
+                    <h3>Total Collected</h3>
+                    <div class="stat-number">RWF <?php echo number_format($total_collected); ?></div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon"><i class="fas fa-history"></i></div>
-                <h3>Recent Collections</h3>
-                <div class="stat-number"><?php echo count($recent_collections); ?></div>
+            
+            <div class="section-card">
+                <h3 class="section-title"><i class="fas fa-clock"></i> Pending Payments</h3>
+                <?php if(count($pending_payments) > 0): ?>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Address</th>
+                                    <th>Amount</th>
+                                    <th>Pickup Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($pending_payments as $payment): ?>
+                                <tr>
+                                    <td>#<?php echo $payment['id']; ?></td>
+                                    <td><?php echo htmlspecialchars($payment['firstname'] . ' ' . $payment['lastname']); ?></td>
+                                    <td><?php echo htmlspecialchars($payment['phone']); ?></td>
+                                    <td><?php echo htmlspecialchars($payment['housenumber'] . ', ' . $payment['village']); ?></td>
+                                    <td><strong>RWF <?php echo number_format($payment['amount']); ?></strong></td>
+                                    <td><?php echo date('M j, Y', strtotime($payment['pickup_date'])); ?></td>
+                                    <td>
+                                        <form method="POST" style="display: inline;">
+                                            <input type="hidden" name="payment_id" value="<?php echo $payment['id']; ?>">
+                                            <button type="submit" name="collect_payment" class="btn-collect" onclick="return confirm('Collect payment of RWF <?php echo number_format($payment['amount']); ?>?')">
+                                                <i class="fas fa-hand-holding-usd"></i> Collect
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <p style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <i class="fas fa-check-circle"></i> No pending payments
+                    </p>
+                <?php endif; ?>
             </div>
         </div>
         
-        <div class="section-card">
-            <h3 class="section-title"><i class="fas fa-clock"></i> Pending Payments</h3>
-            <?php if(count($pending_payments) > 0): ?>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Payment ID</th>
-                                <th>Customer</th>
-                                <th>Phone</th>
-                                <th>Address</th>
-                                <th>Amount</th>
-                                <th>Pickup Date</th>
-                                <th>Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($pending_payments as $payment): ?>
-                            <tr>
-                                <td>#<?php echo $payment['id']; ?></td>
-                                <td><?php echo htmlspecialchars($payment['firstname'] . ' ' . $payment['lastname']); ?></td>
-                                <td><?php echo htmlspecialchars($payment['phone']); ?></td>
-                                <td><?php echo htmlspecialchars($payment['housenumber'] . ', ' . $payment['village']); ?></td>
-                                <td><strong>RWF <?php echo number_format($payment['amount']); ?></strong></td>
-                                <td><?php echo date('M j, Y', strtotime($payment['pickup_date'])); ?></td>
-                                <td>
-                                    <button type="button" class="btn-collect" onclick="collectPayment(<?php echo $payment['id']; ?>, <?php echo $payment['amount']; ?>)">
-                                        <i class="fas fa-hand-holding-usd"></i> Collect
-                                    </button>
-                                </td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php else: ?>
-                <p style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                    <i class="fas fa-check-circle"></i> No pending payments
-                </p>
-            <?php endif; ?>
+        <!-- Collections Tab -->
+        <div id="collections-tab" class="tab-content">
+            <div class="section-card">
+                <h3 class="section-title"><i class="fas fa-calendar-day"></i> Today's Collections</h3>
+                <?php if(count($today_collections) > 0): ?>
+                    <div class="table-responsive">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Amount</th>
+                                    <th>Collection Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($today_collections as $collection): ?>
+                                <tr>
+                                    <td>#<?php echo $collection['id']; ?></td>
+                                    <td><?php echo htmlspecialchars($collection['firstname'] . ' ' . $collection['lastname']); ?></td>
+                                    <td><?php echo htmlspecialchars($collection['phone']); ?></td>
+                                    <td>RWF <?php echo number_format($collection['amount']); ?></td>
+                                    <td><?php echo date('M j, Y', strtotime($collection['payment_date'])); ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <p style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <i class="fas fa-calendar-day"></i> No collections today
+                    </p>
+                <?php endif; ?>
+            </div>
+            
+            <div class="section-card">
+                <h3 class="section-title"><i class="fas fa-history"></i> Recent Collections</h3>
+                <?php if(count($recent_collections) > 0): ?>
+                    <div class="table-responsive">
+                        </table>
+                            <thead>
+                                <tr>
+                                    <th>Payment ID</th>
+                                    <th>Customer</th>
+                                    <th>Phone</th>
+                                    <th>Amount</th>
+                                    <th>Collection Date</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach($recent_collections as $collection): ?>
+                                <tr>
+                                    <td>#<?php echo $collection['id']; ?></td>
+                                    <td><?php echo htmlspecialchars($collection['firstname'] . ' ' . $collection['lastname']); ?></td>
+                                    <td><?php echo htmlspecialchars($collection['phone']); ?></td>
+                                    <td>RWF <?php echo number_format($collection['amount']); ?></td>
+                                    <td><?php echo date('M j, Y', strtotime($collection['payment_date'])); ?></td>
+                                    <td><span class="status-badge status-paid">Paid</span></td>
+                                </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php else: ?>
+                    <p style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <i class="fas fa-receipt"></i> No collections yet
+                    </p>
+                <?php endif; ?>
+            </div>
         </div>
         
-        <div class="section-card">
-            <h3 class="section-title"><i class="fas fa-history"></i> Recent Collections</h3>
-            <?php if(count($recent_collections) > 0): ?>
-                <div class="table-responsive">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Payment ID</th>
-                                <th>Customer</th>
-                                <th>Phone</th>
-                                <th>Amount</th>
-                                <th>Collection Date</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach($recent_collections as $collection): ?>
-                            <tr>
-                                <td>#<?php echo $collection['id']; ?></td>
-                                <td><?php echo htmlspecialchars($collection['firstname'] . ' ' . $collection['lastname']); ?>
-                                                                 Wasm
-                                 <td class="stat-number"><?php echo number_format($collection['amount']); ?></td>
-                                 <td><?php echo date('M j, Y', strtotime($collection['payment_date'])); ?></td>
-                                 <td><span class="status-badge status-paid">Paid</span></td>
-                               </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                     </table>
-                </div>
-            <?php else: ?>
-                <p style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                    <i class="fas fa-receipt"></i> No collections yet
-                </p>
-            <?php endif; ?>
+        <!-- Profile Tab -->
+        <div id="profile-tab" class="tab-content">
+            <div class="section-card">
+                <h3 class="section-title"><i class="fas fa-user-edit"></i> Edit Profile</h3>
+                
+                <?php if(isset($profile_success)): ?>
+                    <div class="alert alert-success"><?php echo $profile_success; ?></div>
+                <?php endif; ?>
+                <?php if(isset($profile_error)): ?>
+                    <div class="alert alert-error"><?php echo $profile_error; ?></div>
+                <?php endif; ?>
+                
+                <form method="POST">
+                    <div class="row">
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> First Name</label>
+                            <input type="text" name="firstname" value="<?php echo htmlspecialchars($collector['firstname']); ?>" required>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-user"></i> Last Name</label>
+                            <input type="text" name="lastname" value="<?php echo htmlspecialchars($collector['lastname']); ?>" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-envelope"></i> Email</label>
+                        <input type="email" value="<?php echo htmlspecialchars($collector['email']); ?>" disabled>
+                        <small style="color: var(--text-muted);">Email cannot be changed</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-phone"></i> Phone</label>
+                        <input type="tel" name="phone" value="<?php echo htmlspecialchars($collector['phone']); ?>" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-venus-mars"></i> Gender</label>
+                        <select name="gender" required>
+                            <option value="Male" <?php echo $collector['gender'] == 'Male' ? 'selected' : ''; ?>>Male</option>
+                            <option value="Female" <?php echo $collector['gender'] == 'Female' ? 'selected' : ''; ?>>Female</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><i class="fas fa-id-card"></i> Role</label>
+                        <input type="text" value="Fee Collector" disabled>
+                        <small style="color: var(--text-muted);">Role cannot be changed</small>
+                    </div>
+                    
+                    <button type="submit" name="update_profile" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Profile
+                    </button>
+                </form>
+            </div>
+            
+            <div class="section-card">
+                <h3 class="section-title"><i class="fas fa-key"></i> Change Password</h3>
+                
+                <?php if(isset($password_success)): ?>
+                    <div class="alert alert-success"><?php echo $password_success; ?></div>
+                <?php endif; ?>
+                <?php if(isset($password_error)): ?>
+                    <div class="alert alert-error"><?php echo $password_error; ?></div>
+                <?php endif; ?>
+                
+                <form method="POST">
+                    <div class="form-group">
+                        <label><i class="fas fa-lock"></i> Current Password</label>
+                        <div class="password-container">
+                            <input type="password" name="current_password" id="current_password" required>
+                            <button type="button" class="toggle-password" onclick="togglePassword('current_password')">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="form-group">
+                            <label><i class="fas fa-lock"></i> New Password</label>
+                            <div class="password-container">
+                                <input type="password" name="new_password" id="new_password" required>
+                                <button type="button" class="toggle-password" onclick="togglePassword('new_password')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                            <small>Minimum 6 characters</small>
+                        </div>
+                        <div class="form-group">
+                            <label><i class="fas fa-lock"></i> Confirm New Password</label>
+                            <div class="password-container">
+                                <input type="password" name="confirm_password" id="confirm_password" required>
+                                <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" name="change_password" class="btn btn-primary">
+                        <i class="fas fa-key"></i> Change Password
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
     
@@ -519,10 +881,39 @@ $recent_collections = $stmt->fetchAll();
             document.getElementById('sidebar').classList.toggle('show');
         }
         
-        function collectPayment(paymentId, amount) {
-            if(confirm(`Collect payment of RWF ${amount.toLocaleString()}?`)) {
-                // Here you would submit a form or AJAX request
-                window.location.href = `collect_payment.php?id=${paymentId}`;
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Update active menu item
+            document.querySelectorAll('.nav-menu a').forEach(link => {
+                link.classList.remove('active');
+            });
+            
+            // Set active class on clicked link
+            if (event && event.currentTarget) {
+                event.currentTarget.classList.add('active');
+            }
+        }
+        
+        function togglePassword(fieldId) {
+            const input = document.getElementById(fieldId);
+            const button = input.nextElementSibling;
+            const icon = button.querySelector('i');
+            
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.classList.remove('fa-eye');
+                icon.classList.add('fa-eye-slash');
+            } else {
+                input.type = 'password';
+                icon.classList.remove('fa-eye-slash');
+                icon.classList.add('fa-eye');
             }
         }
         
@@ -535,6 +926,14 @@ $recent_collections = $stmt->fetchAll();
                 }
             }
         });
+        
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            document.querySelectorAll('.alert').forEach(alert => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
     </script>
 </body>
 </html>

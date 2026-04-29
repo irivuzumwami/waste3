@@ -551,7 +551,7 @@ if (isset($_POST['update_profile'])) {
         </div>
         <ul class="nav-menu">
             <li><a href="#" class="active" onclick="showTab('dashboard'); return false;"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-            <li><a href="#" onclick="showTab('schedule'); return false;"><i class="fas fa-calendar-plus"></i> Schedule Pickup</a></li>
+            <li><a href="orders" onclick="showTab('schedule'); return false;"><i class="fas fa-calendar-plus"></i> Schedule Pickup</a></li>
             <li><a href="#" onclick="showTab('orders'); return false;"><i class="fas fa-truck"></i> My Orders</a></li>
             <li><a href="#" onclick="showTab('payments'); return false;"><i class="fas fa-money-bill-wave"></i> Payments</a></li>
             <li><a href="#" onclick="showTab('profile'); return false;"><i class="fas fa-user"></i> Profile</a></li>

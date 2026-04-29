@@ -1,6 +1,10 @@
 <?php
-// customer/register.php
+// admin/add_driver.php
 session_start();
+if (!isset($_SESSION['user_id']) || $_SESSION['role'] != 'admin') {
+    header('Location: ../index.php');
+    exit;
+}
 require_once '../config/database.php';
 
 $success = '';
@@ -12,15 +16,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $lastname = trim($_POST['lastname']);
     $email = trim($_POST['email']);
     $phone = trim($_POST['phone']);
-    $housenumber = trim($_POST['housenumber']);
-    $province = $_POST['province'];
-    $district = trim($_POST['district']);
-    $sector = trim($_POST['sector']);
-    $cell = trim($_POST['cell']);
-    $village = trim($_POST['village']);
+    $category = $_POST['category'];
+    $status = $_POST['status'];
+    $gender = $_POST['gender'];
     $password = $_POST['password'];
     $confirm_password = $_POST['confirm_password'];
-    $status = 'active';
     
     // Validation
     $errors = [];
@@ -40,48 +40,52 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors[] = "Invalid email address!";
     }
     
-    // Validate phone (Rwandan format)
+    // Validate phone
     if (!preg_match('/^07[0-9]{8}$/', $phone)) {
-        $errors[] = "Invalid phone number! Must be 10 digits starting with 07 (e.g., 0781234567)";
+        $errors[] = "Invalid phone number! Must be 10 digits starting with 07";
     }
     
     // Check if email already exists
-    $check_email = $pdo->prepare("SELECT id FROM customer WHERE email = ?");
-    $check_email->execute([$email]);
-    if ($check_email->rowCount() > 0) {
-        $errors[] = "Email address already registered!";
-    }
-    
-    // Check if phone already exists
-    $check_phone = $pdo->prepare("SELECT id FROM customer WHERE phone = ?");
-    $check_phone->execute([$phone]);
-    if ($check_phone->rowCount() > 0) {
-        $errors[] = "Phone number already registered!";
+    try {
+        $check_email = $pdo->prepare("SELECT id FROM drivers WHERE email = ?");
+        $check_email->execute([$email]);
+        if ($check_email->rowCount() > 0) {
+            $errors[] = "Email address already registered!";
+        }
+        
+        // Check if phone already exists
+        $check_phone = $pdo->prepare("SELECT id FROM drivers WHERE phone = ?");
+        $check_phone->execute([$phone]);
+        if ($check_phone->rowCount() > 0) {
+            $errors[] = "Phone number already registered!";
+        }
+    } catch (PDOException $e) {
+        error_log("Check error: " . $e->getMessage());
+        $errors[] = "Database error. Please try again.";
     }
     
     // If no errors, proceed with registration
     if (empty($errors)) {
         try {
-            // Insert into customer table
-            $stmt = $pdo->prepare("INSERT INTO customer (firstname, lastname, email, phone, status, housenumber, province, district, sector, cell, village, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO drivers (firstname, lastname, email, phone, category, status, gender, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             
-            if ($stmt->execute([$firstname, $lastname, $email, $phone, $status, $housenumber, $province, $district, $sector, $cell, $village, $password])) {
-                $success = "Registration successful! Redirecting to login...";
-                // Clear form data
+            $result = $stmt->execute([$firstname, $lastname, $email, $phone, $category, $status, $gender, $password]);
+            
+            if ($result) {
+                $success = "Driver registered successfully!";
                 $_POST = array();
             } else {
                 $error = "Registration failed. Please try again.";
             }
         } catch(PDOException $e) {
             error_log("Registration error: " . $e->getMessage());
-            $error = "Database error. Please try again later.";
+            $error = "Registration failed. Please try again.";
         }
     } else {
         $error = implode("<br>", $errors);
     }
 }
 
-// Check if background image exists
 $bgImage = 'ede.jpg';
 $bgImagePath = __DIR__ . '/../' . $bgImage;
 if (!file_exists($bgImagePath)) {
@@ -93,8 +97,7 @@ if (!file_exists($bgImagePath)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Registration - EcoWaste</title>
-    <!-- Font Awesome for password toggle -->
+    <title>Add Driver - WMS Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -102,7 +105,6 @@ if (!file_exists($bgImagePath)) {
             --secondary: #fbbf24;
             --glass-bg: rgba(255, 255, 255, 0.12);
             --bg-dark: #0f172a;
-            --footer-bg: #0b1120;
             --text-muted: #94a3b8;
             --teal-accent: #00c49a;
         }
@@ -171,14 +173,14 @@ if (!file_exists($bgImagePath)) {
         }
         
         .form-group {
-            margin-bottom: 1rem;
+            margin-bottom: 1.2rem;
         }
         
         label {
             display: block;
             margin-bottom: 0.5rem;
-            color: var(--text-muted);
-            font-weight: 500;
+            color: var(--secondary);
+            font-weight: 600;
         }
         
         input, select {
@@ -192,13 +194,24 @@ if (!file_exists($bgImagePath)) {
             transition: all 0.3s ease;
         }
         
-        /* Enhanced select dropdown styling */
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--secondary);
+            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
+            background: rgba(255,255,255,0.15);
+        }
+        
+        input::placeholder, select::placeholder {
+            color: var(--text-muted);
+        }
+        
+        /* Select Styling */
         select {
             cursor: pointer;
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
-            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
             background-repeat: no-repeat;
             background-position: right 1rem center;
             background-size: 1rem;
@@ -207,27 +220,31 @@ if (!file_exists($bgImagePath)) {
         select option {
             background: var(--bg-dark);
             color: #fff;
-            padding: 10px;
+            padding: 12px;
+            font-size: 1rem;
         }
         
-        select option:hover {
-            background: var(--primary);
-        }
+        /* Category Options Colors */
+        select[name="category"] option[value="B"] { color: #3498db; background: #0f172a; font-weight: bold; }
+        select[name="category"] option[value="C"] { color: #e74c3c; background: #0f172a; font-weight: bold; }
+        select[name="category"] option[value="D"] { color: #f39c12; background: #0f172a; font-weight: bold; }
+        select[name="category"] option[value="F"] { color: #2ecc71; background: #0f172a; font-weight: bold; }
         
-        input:focus, select:focus {
-            outline: none;
-            border-color: var(--secondary);
-            box-shadow: 0 0 0 2px rgba(251, 191, 36, 0.2);
-            background: rgba(255,255,255,0.15);
-        }
+        /* Gender Options Colors */
+        select[name="gender"] option[value="Male"] { color: #3498db; background: #0f172a; font-weight: bold; }
+        select[name="gender"] option[value="Female"] { color: #e74c3c; background: #0f172a; font-weight: bold; }
+        
+        /* Status Options Colors */
+        select[name="status"] option[value="active"] { color: #00c49a; background: #0f172a; font-weight: bold; }
+        select[name="status"] option[value="inactive"] { color: #e74c3c; background: #0f172a; font-weight: bold; }
         
         .row {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 1.2rem;
         }
         
-        /* Password Container with Toggle */
+        /* Password Container */
         .password-container {
             position: relative;
             width: 100%;
@@ -267,28 +284,31 @@ if (!file_exists($bgImagePath)) {
         .button-group {
             display: flex;
             gap: 1rem;
-            margin-top: 1rem;
+            margin-top: 1.5rem;
         }
         
-        .btn-register {
-            flex: 2;
+        .btn {
             padding: 1rem;
-            background: var(--primary);
-            border: none;
             border-radius: 10px;
-            color: #fff;
             font-size: 1.1rem;
             font-weight: bold;
             cursor: pointer;
-            transition: 0.3s;
+            transition: all 0.3s ease;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 10px;
+            border: none;
+        }
+        
+        .btn-submit {
+            flex: 2;
+            background: var(--primary);
+            color: #fff;
             border: 1px solid var(--secondary);
         }
         
-        .btn-register:hover {
+        .btn-submit:hover {
             background: var(--secondary);
             color: var(--primary);
             transform: translateY(-2px);
@@ -297,19 +317,9 @@ if (!file_exists($bgImagePath)) {
         
         .btn-back {
             flex: 1;
-            padding: 1rem;
             background: transparent;
-            border: 1px solid var(--secondary);
-            border-radius: 10px;
             color: var(--secondary);
-            font-size: 1.1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.3s;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            border: 1px solid var(--secondary);
         }
         
         .btn-back:hover {
@@ -319,12 +329,12 @@ if (!file_exists($bgImagePath)) {
             box-shadow: 0 5px 15px rgba(251, 191, 36, 0.3);
         }
         
-        .btn-back i, .btn-register i {
+        .btn i {
             font-size: 1rem;
             transition: transform 0.3s ease;
         }
         
-        .btn-register:hover i {
+        .btn-submit:hover i {
             transform: translateX(3px);
         }
         
@@ -332,6 +342,7 @@ if (!file_exists($bgImagePath)) {
             transform: translateX(-3px);
         }
         
+        /* Alert Styles */
         .alert {
             padding: 1rem;
             border-radius: 10px;
@@ -352,23 +363,6 @@ if (!file_exists($bgImagePath)) {
             color: #ff8888;
         }
         
-        .login-link {
-            text-align: center;
-            margin-top: 1.5rem;
-            padding-top: 1rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-        }
-        
-        .login-link a {
-            color: var(--secondary);
-            text-decoration: none;
-            transition: 0.3s;
-        }
-        
-        .login-link a:hover {
-            text-decoration: underline;
-        }
-        
         .password-strength {
             font-size: 0.8rem;
             margin-top: 0.3rem;
@@ -380,6 +374,15 @@ if (!file_exists($bgImagePath)) {
         
         .match-success { color: var(--teal-accent); }
         .match-error { color: #ff4444; }
+        
+        .category-info {
+            background: rgba(0,196,154,0.1);
+            padding: 0.5rem;
+            border-radius: 8px;
+            margin-top: 0.5rem;
+            font-size: 0.8rem;
+            text-align: center;
+        }
         
         small {
             display: block;
@@ -406,11 +409,12 @@ if (!file_exists($bgImagePath)) {
             }
             .row {
                 grid-template-columns: 1fr;
+                gap: 1rem;
             }
             .button-group {
                 flex-direction: column;
             }
-            .btn-register, .btn-back {
+            .btn-submit, .btn-back {
                 flex: auto;
             }
         }
@@ -419,8 +423,8 @@ if (!file_exists($bgImagePath)) {
 <body>
     <div class="container">
         <h1>
-            <i class="fas fa-user-plus"></i> 
-            Customer Registration
+            <i class="fas fa-truck"></i> 
+            Register New Driver
         </h1>
         
         <?php if($success): ?>
@@ -429,7 +433,7 @@ if (!file_exists($bgImagePath)) {
             </div>
             <script>
                 setTimeout(function() {
-                    window.location.href = '../index.php?success=registered&show_login=1';
+                    window.location.href = 'dashboard.php?success=driver_added';
                 }, 2000);
             </script>
         <?php endif; ?>
@@ -455,7 +459,7 @@ if (!file_exists($bgImagePath)) {
             <div class="row">
                 <div class="form-group">
                     <label><i class="fas fa-envelope"></i> Email *</label>
-                    <input type="email" name="email" id="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" placeholder="your@email.com" required>
+                    <input type="email" name="email" id="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" placeholder="driver@wms.rw" required>
                 </div>
                 <div class="form-group">
                     <label><i class="fas fa-phone"></i> Phone *</label>
@@ -464,46 +468,39 @@ if (!file_exists($bgImagePath)) {
                 </div>
             </div>
             
-            <div class="form-group">
-                <label><i class="fas fa-home"></i> House Number *</label>
-                <input type="text" name="housenumber" placeholder="e.g., KN 14 Ave, KG 123 St" value="<?php echo isset($_POST['housenumber']) ? htmlspecialchars($_POST['housenumber']) : ''; ?>" required>
-            </div>
-            
             <div class="row">
                 <div class="form-group">
-                    <label><i class="fas fa-map-marker-alt"></i> Province *</label>
-                    <select name="province" id="province" required>
-                        <option value="">-- Select Province --</option>
-                        <option value="Kigali" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Kigali') ? 'selected' : ''; ?>>Kigali City</option>
-                        <option value="Northern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Northern') ? 'selected' : ''; ?>>Northern Province</option>
-                        <option value="Southern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Southern') ? 'selected' : ''; ?>>Southern Province</option>
-                        <option value="Eastern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Eastern') ? 'selected' : ''; ?>>Eastern Province</option>
-                        <option value="Western" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Western') ? 'selected' : ''; ?>>Western Province</option>
+                    <label><i class="fas fa-id-card"></i> Driver Category *</label>
+                    <select name="category" id="category" required onchange="updateCategoryInfo()">
+                        <option value="" disabled selected>-- Select Driver Category --</option>
+                        <option value="B" <?php echo (isset($_POST['category']) && $_POST['category'] == 'B') ? 'selected' : ''; ?>>🚗 Category B - Light Vehicles</option>
+                        <option value="C" <?php echo (isset($_POST['category']) && $_POST['category'] == 'C') ? 'selected' : ''; ?>>🚚 Category C - Heavy Trucks</option>
+                        <option value="D" <?php echo (isset($_POST['category']) && $_POST['category'] == 'D') ? 'selected' : ''; ?>>🚌 Category D - Buses</option>
+                        <option value="F" <?php echo (isset($_POST['category']) && $_POST['category'] == 'F') ? 'selected' : ''; ?>>🏗️ Category F - Heavy Machinery</option>
+                    </select>
+                    <div class="category-info" id="categoryInfo">
+                        <i class="fas fa-info-circle"></i> Select a driver category to see details
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label><i class="fas fa-venus-mars"></i> Gender *</label>
+                    <select name="gender" required>
+                        <option value="" disabled selected>-- Select Gender --</option>
+                        <option value="Male" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'Male') ? 'selected' : ''; ?>>👨 Male</option>
+                        <option value="Female" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'Female') ? 'selected' : ''; ?>>👩 Female</option>
                     </select>
                 </div>
-                <div class="form-group">
-                    <label><i class="fas fa-city"></i> District *</label>
-                    <input type="text" name="district" placeholder="Enter district" value="<?php echo isset($_POST['district']) ? htmlspecialchars($_POST['district']) : ''; ?>" required>
-                </div>
             </div>
             
             <div class="row">
                 <div class="form-group">
-                    <label><i class="fas fa-building"></i> Sector *</label>
-                    <input type="text" name="sector" placeholder="Enter sector" value="<?php echo isset($_POST['sector']) ? htmlspecialchars($_POST['sector']) : ''; ?>" required>
+                    <label><i class="fas fa-toggle-on"></i> Status *</label>
+                    <select name="status" required>
+                        <option value="" disabled selected>-- Select Status --</option>
+                        <option value="active" <?php echo (isset($_POST['status']) && $_POST['status'] == 'active') ? 'selected' : ''; ?>>✅ Active</option>
+                        <option value="inactive" <?php echo (isset($_POST['status']) && $_POST['status'] == 'inactive') ? 'selected' : ''; ?>>❌ Inactive</option>
+                    </select>
                 </div>
-                <div class="form-group">
-                    <label><i class="fas fa-location-dot"></i> Cell *</label>
-                    <input type="text" name="cell" placeholder="Enter cell" value="<?php echo isset($_POST['cell']) ? htmlspecialchars($_POST['cell']) : ''; ?>" required>
-                </div>
-            </div>
-            
-            <div class="form-group">
-                <label><i class="fas fa-tree"></i> Village *</label>
-                <input type="text" name="village" placeholder="Enter village" value="<?php echo isset($_POST['village']) ? htmlspecialchars($_POST['village']) : ''; ?>" required>
-            </div>
-            
-            <div class="row">
                 <div class="form-group">
                     <label><i class="fas fa-lock"></i> Password *</label>
                     <div class="password-container">
@@ -512,38 +509,32 @@ if (!file_exists($bgImagePath)) {
                             <i class="fas fa-eye"></i>
                         </button>
                     </div>
-                    <div class="password-strength" id="passwordStrength"></div>
-                </div>
-                <div class="form-group">
-                    <label><i class="fas fa-lock"></i> Confirm Password *</label>
-                    <div class="password-container">
-                        <input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm your password" required>
-                        <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
-                            <i class="fas fa-eye"></i>
-                        </button>
-                    </div>
-                    <div class="password-strength" id="confirmMatch"></div>
                 </div>
             </div>
             
+            <div class="form-group">
+                <label><i class="fas fa-lock"></i> Confirm Password *</label>
+                <div class="password-container">
+                    <input type="password" name="confirm_password" id="confirm_password" placeholder="Confirm your password" required>
+                    <button type="button" class="toggle-password" onclick="togglePassword('confirm_password')">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                </div>
+                <div class="password-strength" id="confirmMatch"></div>
+            </div>
+            
             <div class="button-group">
-                <button type="submit" class="btn-register">
-                    <i class="fas fa-user-plus"></i> Register Now
+                <button type="submit" class="btn btn-submit">
+                    <i class="fas fa-user-plus"></i> Register Driver
                 </button>
-                <button type="button" class="btn-back" onclick="window.location.href='../index.php'">
-                    <i class="fas fa-arrow-left"></i> Back to Home
+                <button type="button" class="btn btn-back" onclick="window.location.href='dashboard.php'">
+                    <i class="fas fa-arrow-left"></i> Back to Dashboard
                 </button>
             </div>
         </form>
-        
-        <div class="login-link">
-            <i class="fas fa-sign-in-alt"></i> Already have an account? 
-            <a href="../index.php?show_login=1">Login here</a>
-        </div>
     </div>
     
     <script>
-        // Toggle password visibility
         function togglePassword(fieldId) {
             const input = document.getElementById(fieldId);
             const button = input.nextElementSibling;
@@ -560,50 +551,44 @@ if (!file_exists($bgImagePath)) {
             }
         }
         
-        // Password strength checker
-        function checkPasswordStrength() {
-            const password = document.getElementById('password').value;
-            const strengthDiv = document.getElementById('passwordStrength');
+        function updateCategoryInfo() {
+            const category = document.getElementById('category').value;
+            const infoDiv = document.getElementById('categoryInfo');
             
-            if (password.length === 0) {
-                strengthDiv.innerHTML = '';
-                return;
+            let infoText = '';
+            let borderColor = '';
+            
+            switch(category) {
+                case 'B':
+                    infoText = '✓ Category B: Light vehicles, cars, vans up to 3.5 tons. Can transport light waste materials.';
+                    borderColor = '#3498db';
+                    break;
+                case 'C':
+                    infoText = '✓ Category C: Heavy trucks, vehicles over 3.5 tons. Suitable for large waste collection trucks.';
+                    borderColor = '#e74c3c';
+                    break;
+                case 'D':
+                    infoText = '✓ Category D: Buses, passenger vehicles (8+ seats). Can transport waste collection crews.';
+                    borderColor = '#f39c12';
+                    break;
+                case 'F':
+                    infoText = '✓ Category F: Heavy machinery, specialized vehicles. For operating compactors and heavy equipment.';
+                    borderColor = '#2ecc71';
+                    break;
+                default:
+                    infoText = 'Select a driver category to see vehicle type and responsibilities';
+                    borderColor = 'var(--secondary)';
             }
             
-            let strength = 0;
-            let message = '';
-            let className = '';
-            
-            // Length check
-            if (password.length >= 6) strength++;
-            if (password.length >= 8) strength++;
-            if (password.length >= 12) strength++;
-            
-            // Contains numbers
-            if (/\d/.test(password)) strength++;
-            
-            // Contains lowercase and uppercase
-            if (/[a-z]/.test(password) && /[A-Z]/.test(password)) strength++;
-            
-            // Contains special characters
-            if (/[!@#$%^&*(),.?":{}|<>]/.test(password)) strength++;
-            
-            if (strength <= 2) {
-                message = '⚠️ Weak password';
-                className = 'strength-weak';
-            } else if (strength <= 4) {
-                message = '⚡ Medium password';
-                className = 'strength-medium';
+            if (category) {
+                infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${infoText}`;
+                infoDiv.style.borderLeft = `3px solid ${borderColor}`;
             } else {
-                message = '✓ Strong password';
-                className = 'strength-strong';
+                infoDiv.innerHTML = `<i class="fas fa-info-circle"></i> ${infoText}`;
+                infoDiv.style.borderLeft = `3px solid var(--secondary)`;
             }
-            
-            strengthDiv.innerHTML = '<i class="fas fa-info-circle"></i> ' + message;
-            strengthDiv.className = 'password-strength ' + className;
         }
         
-        // Check if passwords match
         function checkPasswordMatch() {
             const password = document.getElementById('password').value;
             const confirm = document.getElementById('confirm_password').value;
@@ -623,12 +608,14 @@ if (!file_exists($bgImagePath)) {
             }
         }
         
-        // Validate form before submission
         function validateForm() {
             const password = document.getElementById('password').value;
             const confirm = document.getElementById('confirm_password').value;
             const email = document.getElementById('email').value;
             const phone = document.getElementById('phone').value;
+            const category = document.getElementById('category').value;
+            const gender = document.querySelector('select[name="gender"]').value;
+            const status = document.querySelector('select[name="status"]').value;
             
             if (password !== confirm) {
                 alert('Passwords do not match!');
@@ -640,14 +627,27 @@ if (!file_exists($bgImagePath)) {
                 return false;
             }
             
-            // Email validation
+            if (!category) {
+                alert('Please select a driver category!');
+                return false;
+            }
+            
+            if (!gender) {
+                alert('Please select gender!');
+                return false;
+            }
+            
+            if (!status) {
+                alert('Please select status!');
+                return false;
+            }
+            
             const emailRegex = /^[^\s@]+@([^\s@]+\.)+[^\s@]+$/;
             if (!emailRegex.test(email)) {
                 alert('Please enter a valid email address!');
                 return false;
             }
             
-            // Phone validation (Rwandan format)
             const phoneRegex = /^07[0-9]{8}$/;
             if (!phoneRegex.test(phone)) {
                 alert('Please enter a valid phone number (format: 0781234567)');
@@ -657,22 +657,17 @@ if (!file_exists($bgImagePath)) {
             return true;
         }
         
-        // Add event listeners
         const passwordField = document.getElementById('password');
         const confirmField = document.getElementById('confirm_password');
         
         if (passwordField) {
-            passwordField.addEventListener('input', function() {
-                checkPasswordStrength();
-                checkPasswordMatch();
-            });
+            passwordField.addEventListener('input', checkPasswordMatch);
         }
         
         if (confirmField) {
             confirmField.addEventListener('input', checkPasswordMatch);
         }
         
-        // Auto-hide alerts after 5 seconds
         setTimeout(() => {
             const alerts = document.querySelectorAll('.alert');
             alerts.forEach(alert => {
@@ -681,9 +676,8 @@ if (!file_exists($bgImagePath)) {
             });
         }, 5000);
         
-        // Open login modal function (for the login link)
-        function openLoginModal() {
-            window.location.href = '../index.php?show_login=1';
+        if (document.getElementById('category').value) {
+            updateCategoryInfo();
         }
     </script>
 </body>
