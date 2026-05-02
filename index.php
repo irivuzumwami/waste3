@@ -41,6 +41,19 @@ $hasImages = count($validImages) > 0;
 
 // Get theme preference from cookie or default to dark
 $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
+
+// Favicon path - auto-detect correct path
+$faviconPath = 'logo.jpeg';
+if (!file_exists(__DIR__ . '/' . $faviconPath)) {
+    // Try alternative favicon names
+    if (file_exists(__DIR__ . '/favicon.ico')) {
+        $faviconPath = 'favicon.ico';
+    } elseif (file_exists(__DIR__ . '/mylogo.jpeg')) {
+        $faviconPath = 'mylogo.jpeg';
+    } elseif (file_exists(__DIR__ . '/assets/mylogo.jpeg')) {
+        $faviconPath = 'assets/mylogo.jpeg';
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -48,6 +61,9 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>WMS | Smart Waste Management System</title>
+    <!-- Favicon -->
+    <link rel="icon" type="image/jpeg" href="<?php echo $faviconPath; ?>">
+    <link rel="shortcut icon" type="image/jpeg" href="<?php echo $faviconPath; ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         /* Light Mode Variables - Reduced Opacity for Less Shining */
@@ -126,8 +142,8 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
         }
         
         .logo-img {
-            width: 90px;
-            height: 90px;
+            width: 55px;
+            height: 55px;
             object-fit: cover;
             border-radius: 12px;
             border: 2px solid var(--teal-accent);
@@ -670,14 +686,9 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
                 padding: 0.8rem 5%;
             }
             .nav-links {
-<<<<<<< HEAD
                 gap: 10px;
                 flex-wrap: wrap;
                 justify-content: center;
-=======
-                gap: 5px;
-                font-size: 12px;
->>>>>>> 7fbe8d0478669692122a54ea20d7d06f7c11027f
             }
             .hero-content h1 { 
                 font-size: 2rem;
@@ -705,7 +716,7 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
                 font-size: 7px;
             }
             .bg-indicators {
-                bottom: 5px;
+                bottom: 15px;
             }
             .footer-content {
                 grid-template-columns: 1fr;
@@ -726,6 +737,10 @@ $theme = isset($_COOKIE['theme']) ? $_COOKIE['theme'] : 'dark';
         <a href="#home" class="logo">
             <?php if($logoExists): ?>
                 <img src="logo.jpeg" alt="WMS Logo" class="logo-img">
+            <?php else: ?>
+                <div class="logo-img" style="background: linear-gradient(135deg, var(--teal-accent), var(--secondary)); display: flex; align-items: center; justify-content: center;">
+                    <i class="fas fa-recycle" style="font-size: 28px; color: #fff;"></i>
+                </div>
             <?php endif; ?>
             <div class="logo-text">
                 <div class="logo-main">
