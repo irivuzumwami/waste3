@@ -57,7 +57,7 @@ if (!file_exists(__DIR__ . '/' . $faviconPath)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>WMS | Smart ste Management System</title>
+    <title>WMS | Smart Waste Management System</title>
     <link rel="icon" type="image/jpeg" href="<?php echo $faviconPath; ?>">
     <link rel="shortcut icon" type="image/jpeg" href="<?php echo $faviconPath; ?>">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -864,7 +864,7 @@ if (!file_exists(__DIR__ . '/' . $faviconPath)) {
             }
         }
         
-        // Background Animation Logic - CORRECTED
+        // Background Animation Logic
         let currentIdx = 0;
         const images = document.querySelectorAll('.bg-image');
         const indicators = document.querySelectorAll('.indicator');

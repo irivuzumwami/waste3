@@ -45,14 +45,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors[] = "Invalid phone number! Must be 10 digits starting with 07 (e.g., 0781234567)";
     }
     
-    // Check if email already exists
+    // Check if email already exists (PostgreSQL)
     $check_email = $pdo->prepare("SELECT id FROM customer WHERE email = ?");
     $check_email->execute([$email]);
     if ($check_email->rowCount() > 0) {
         $errors[] = "Email address already registered!";
     }
     
-    // Check if phone already exists
+    // Check if phone already exists (PostgreSQL)
     $check_phone = $pdo->prepare("SELECT id FROM customer WHERE phone = ?");
     $check_phone->execute([$phone]);
     if ($check_phone->rowCount() > 0) {
@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // If no errors, proceed with registration
     if (empty($errors)) {
         try {
-            // Insert into customer table
+            // Insert into customer table (PostgreSQL compatible - uses DEFAULT for serial id)
             $stmt = $pdo->prepare("INSERT INTO customer (firstname, lastname, email, phone, status, housenumber, province, district, sector, cell, village, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
             
             if ($stmt->execute([$firstname, $lastname, $email, $phone, $status, $housenumber, $province, $district, $sector, $cell, $village, $password])) {
@@ -93,7 +93,7 @@ if (!file_exists($bgImagePath)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Customer Registration - EcoWaste</title>
+    <title>Customer Registration - WMS</title>
     <!-- Font Awesome for password toggle -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -198,7 +198,7 @@ if (!file_exists($bgImagePath)) {
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
-           
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>');
             background-repeat: no-repeat;
             background-position: right 1rem center;
             background-size: 1rem;
@@ -474,11 +474,11 @@ if (!file_exists($bgImagePath)) {
                     <label><i class="fas fa-map-marker-alt"></i> Province *</label>
                     <select name="province" id="province" required style="color: #fff;">
                         <option value="" disabled <?php echo !isset($_POST['province']) ? 'selected' : ''; ?>>-- Select Province --</option>
-                        <option value="Kigali" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Kigali') ? 'selected' : ''; ?> style="background: #1e3a8a;">Kigali City</option>
-                        <option value="Northern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Northern') ? 'selected' : ''; ?> style="background: #1e3a8a;">Northern Province</option>
-                        <option value="Southern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Southern') ? 'selected' : ''; ?> style="background: #1e3a8a;">Southern Province</option>
-                        <option value="Eastern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Eastern') ? 'selected' : ''; ?> style="background: #1e3a8a;">Eastern Province</option>
-                        <option value="Western" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Western') ? 'selected' : ''; ?> style="background: #1e3a8a;">Western Province</option>
+                        <option value="Kigali" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Kigali') ? 'selected' : ''; ?> style="background: #1e3a8a;">🏙️ Kigali City</option>
+                        <option value="Northern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Northern') ? 'selected' : ''; ?> style="background: #1e3a8a;">⛰️ Northern Province</option>
+                        <option value="Southern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Southern') ? 'selected' : ''; ?> style="background: #1e3a8a;">🌄 Southern Province</option>
+                        <option value="Eastern" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Eastern') ? 'selected' : ''; ?> style="background: #1e3a8a;">🌅 Eastern Province</option>
+                        <option value="Western" <?php echo (isset($_POST['province']) && $_POST['province'] == 'Western') ? 'selected' : ''; ?> style="background: #1e3a8a;">🏞️ Western Province</option>
                     </select>
                 </div>
                 <div class="form-group">

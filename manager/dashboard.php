@@ -14,11 +14,11 @@ $stmt = $pdo->prepare("SELECT * FROM workers WHERE id = ? AND role = 'manager'")
 $stmt->execute([$manager_id]);
 $manager = $stmt->fetch();
 
-// Get statistics
-$stmt = $pdo->query("SELECT COUNT(*) as total FROM orders WHERE DATE(pickup_date) = CURDATE()");
+// Get statistics - PostgreSQL uses CURRENT_DATE instead of CURDATE()
+$stmt = $pdo->query("SELECT COUNT(*) as total FROM orders WHERE DATE(pickup_date) = CURRENT_DATE");
 $todayOrders = $stmt->fetch()['total'];
 
-$stmt = $pdo->query("SELECT COUNT(*) as total FROM orders WHERE DATE(pickup_date) > CURDATE()");
+$stmt = $pdo->query("SELECT COUNT(*) as total FROM orders WHERE DATE(pickup_date) > CURRENT_DATE");
 $upcomingOrders = $stmt->fetch()['total'];
 
 $stmt = $pdo->query("SELECT COUNT(*) as total FROM workers WHERE role = 'driver' AND status = 'active'");
@@ -27,7 +27,8 @@ $activeDrivers = $stmt->fetch()['total'];
 $stmt = $pdo->query("SELECT COUNT(*) as total FROM workers WHERE role = 'collector' AND status = 'active'");
 $activeCollectors = $stmt->fetch()['total'];
 
-$stmt = $pdo->query("SELECT SUM(amount) as total FROM payment WHERE payment_date IS NOT NULL AND payment_date != '0000-00-00'");
+// PostgreSQL uses NULL for no payment date instead of '0000-00-00'
+$stmt = $pdo->query("SELECT COALESCE(SUM(amount), 0) as total FROM payment WHERE payment_date IS NOT NULL");
 $totalRevenue = $stmt->fetch()['total'] ?? 0;
 
 // Get all drivers
@@ -38,7 +39,7 @@ $drivers = $stmt->fetchAll();
 $stmt = $pdo->query("SELECT * FROM workers WHERE role = 'collector' ORDER BY id DESC");
 $collectors = $stmt->fetchAll();
 
-// Get all orders with customer details
+// Get all orders with customer details - PostgreSQL compatible
 $stmt = $pdo->query("
     SELECT o.*, c.firstname, c.lastname, c.phone, c.housenumber, c.village, c.sector,
            p.amount, p.payment_date
@@ -49,77 +50,77 @@ $stmt = $pdo->query("
 ");
 $allOrders = $stmt->fetchAll();
 
-// Get today's pickups
+// Get today's pickups - PostgreSQL uses CURRENT_DATE
 $stmt = $pdo->query("
     SELECT o.*, c.firstname, c.lastname, c.phone, c.housenumber, c.village 
     FROM orders o 
     JOIN customer c ON o.customer_id = c.id 
-    WHERE DATE(o.pickup_date) = CURDATE()
+    WHERE DATE(o.pickup_date) = CURRENT_DATE
     ORDER BY o.pickup_date ASC
 ");
 $todayPickups = $stmt->fetchAll();
 
-// Get pending payments
+// Get pending payments - PostgreSQL uses NULL instead of '0000-00-00'
 $stmt = $pdo->query("
     SELECT p.*, c.firstname, c.lastname, c.phone 
     FROM payment p 
     JOIN customer c ON p.customer_id = c.id 
-    WHERE p.payment_date IS NULL OR p.payment_date = '0000-00-00'
+    WHERE p.payment_date IS NULL
     ORDER BY p.id DESC
 ");
 $pendingPayments = $stmt->fetchAll();
 
-// Get daily report data
+// Get daily report data - PostgreSQL compatible (uses INTERVAL instead of DATE_SUB)
 $stmt = $pdo->query("
     SELECT 
         DATE(o.pickup_date) as date,
         COUNT(o.id) as total_orders,
-        SUM(CASE WHEN p.payment_date IS NOT NULL THEN p.amount ELSE 0 END) as collected_amount,
-        SUM(CASE WHEN p.payment_date IS NULL THEN p.amount ELSE 0 END) as pending_amount,
+        COALESCE(SUM(CASE WHEN p.payment_date IS NOT NULL THEN p.amount ELSE 0 END), 0) as collected_amount,
+        COALESCE(SUM(CASE WHEN p.payment_date IS NULL THEN p.amount ELSE 0 END), 0) as pending_amount,
         COUNT(CASE WHEN p.payment_date IS NOT NULL THEN 1 END) as paid_orders,
         COUNT(CASE WHEN p.payment_date IS NULL THEN 1 END) as pending_orders
     FROM orders o
     LEFT JOIN payment p ON o.id = p.order_id
-    WHERE o.pickup_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+    WHERE o.pickup_date >= CURRENT_DATE - INTERVAL '30 days'
     GROUP BY DATE(o.pickup_date)
     ORDER BY date DESC
 ");
 $dailyReports = $stmt->fetchAll();
 
-// Get monthly report data
+// Get monthly report data - PostgreSQL uses TO_CHAR instead of DATE_FORMAT
 $stmt = $pdo->query("
     SELECT 
-        DATE_FORMAT(o.pickup_date, '%Y-%m') as month,
+        TO_CHAR(o.pickup_date, 'YYYY-MM') as month,
         COUNT(o.id) as total_orders,
-        SUM(CASE WHEN p.payment_date IS NOT NULL THEN p.amount ELSE 0 END) as collected_amount,
-        SUM(CASE WHEN p.payment_date IS NULL THEN p.amount ELSE 0 END) as pending_amount
+        COALESCE(SUM(CASE WHEN p.payment_date IS NOT NULL THEN p.amount ELSE 0 END), 0) as collected_amount,
+        COALESCE(SUM(CASE WHEN p.payment_date IS NULL THEN p.amount ELSE 0 END), 0) as pending_amount
     FROM orders o
     LEFT JOIN payment p ON o.id = p.order_id
-    WHERE o.pickup_date >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-    GROUP BY DATE_FORMAT(o.pickup_date, '%Y-%m')
+    WHERE o.pickup_date >= CURRENT_DATE - INTERVAL '12 months'
+    GROUP BY TO_CHAR(o.pickup_date, 'YYYY-MM')
     ORDER BY month DESC
 ");
 $monthlyReports = $stmt->fetchAll();
 
-// Get top customers
+// Get top customers - PostgreSQL compatible
 $stmt = $pdo->query("
     SELECT 
         c.id, c.firstname, c.lastname, c.phone,
         COUNT(o.id) as total_orders,
-        SUM(p.amount) as total_paid
+        COALESCE(SUM(p.amount), 0) as total_paid
     FROM customer c
     LEFT JOIN orders o ON c.id = o.customer_id
     LEFT JOIN payment p ON o.id = p.order_id AND p.payment_date IS NOT NULL
-    GROUP BY c.id
+    GROUP BY c.id, c.firstname, c.lastname, c.phone
     ORDER BY total_paid DESC
     LIMIT 10
 ");
 $topCustomers = $stmt->fetchAll();
 
-// Handle payment collection
+// Handle payment collection - PostgreSQL uses CURRENT_DATE
 if (isset($_POST['collect_payment'])) {
     $payment_id = $_POST['payment_id'];
-    $stmt = $pdo->prepare("UPDATE payment SET payment_date = CURDATE(), collected_by = ? WHERE id = ?");
+    $stmt = $pdo->prepare("UPDATE payment SET payment_date = CURRENT_DATE, collected_by = ? WHERE id = ?");
     if ($stmt->execute([$manager_id, $payment_id])) {
         header("Location: dashboard.php?success=payment_collected");
         exit;
@@ -206,8 +207,8 @@ if (isset($_POST['update_collector_status'])) {
         }
         
         .logo-img {
-            width: 80px;
-            height: 60px;
+            width: 45px;
+            height: 45px;
             object-fit: cover;
             border-radius: 10px;
             border: 2px solid var(--teal-accent);
@@ -756,7 +757,7 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            <tr><th>Order ID</th><th>Customer</th><th>Phone</th><th>Address</th> </tr>
+                            <tr><th>Order ID</th><th>Customer</th><th>Phone</th><th>Address</th> </td>
                         </thead>
                         <tbody>
                             <?php foreach($todayPickups as $pickup): ?>
@@ -780,7 +781,7 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            <tr><th>Payment ID</th><th>Customer</th><th>Phone</th><th>Amount</th><th>Action</th></tr>
+                            <tr><th>Payment ID</th><th>Customer</th><th>Phone</th><th>Amount</th><th>Action</th> </tr>
                         </thead>
                         <tbody>
                             <?php foreach($pendingPayments as $payment): ?>
@@ -813,16 +814,21 @@ if (isset($_POST['update_collector_status'])) {
             <div class="section-card">
                 <h3 class="section-title"><i class="fas fa-clipboard-list"></i> All Orders</h3>
                 <div class="table-responsive">
-                    <table>
+                    </table>
                         <thead>
                             <tr>
-                                <th>Order ID</th><th>Customer</th><th>Phone</th><th>Pickup Date</th>
-                                <th>Address</th><th>Amount</th><th>Payment Status</th>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Pickup Date</th>
+                                <th>Address</th>
+                                <th>Amount</th>
+                                <th>Payment Status</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php foreach($allOrders as $order): 
-                                $payment_status = ($order['payment_date'] && $order['payment_date'] != '0000-00-00') ? 'Paid' : 'Pending';
+                                $payment_status = ($order['payment_date']) ? 'Paid' : 'Pending';
                                 $payment_class = ($payment_status == 'Paid') ? 'status-paid' : 'status-pending';
                             ?>
                             <tr>
@@ -849,7 +855,7 @@ if (isset($_POST['update_collector_status'])) {
             <div class="section-card">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
                     <h3 class="section-title"><i class="fas fa-truck"></i> Registered Drivers</h3>
-                    <a href="../driver/register.php" class="btn btn-primary">Add New Driver</a>
+                    <a href="../admin/add_driver.php" class="btn btn-primary">Add New Driver</a>
                 </div>
                 <div class="table-responsive">
                     <table>
@@ -878,8 +884,7 @@ if (isset($_POST['update_collector_status'])) {
                                         </select>
                                         <input type="hidden" name="update_driver_status" value="1">
                                     </form>
-                                </td>
-                            </tr>
+                                 </tr>
                             <?php endforeach; ?>
                             <?php if(count($drivers) == 0): ?>
                             <tr><td colspan="7" style="text-align: center;">No drivers registered</td></tr>
@@ -900,7 +905,7 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            <tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Status</th><th>Actions</th></tr>
+                            <tr><th>ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Gender</th><th>Status</th><th>Actions</th></td>
                         </thead>
                         <tbody>
                             <?php foreach($collectors as $collector): ?>
@@ -924,10 +929,11 @@ if (isset($_POST['update_collector_status'])) {
                                         </select>
                                         <input type="hidden" name="update_collector_status" value="1">
                                     </form>
-                                 </tr>
+                                </td>
+                            </tr>
                             <?php endforeach; ?>
                             <?php if(count($collectors) == 0): ?>
-                            <tr><td colspan="7" style="text-align: center;">No fee collectors registered</td></tr>
+                            <tr><td colspan="7" style="text-align: center;">No fee collectors registered</td>--
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -942,7 +948,14 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            <tr><th>Payment ID</th><th>Customer</th><th>Order ID</th><th>Amount</th><th>Payment Date</th><th>Status</th> </tr>
+                            <tr>
+                                <th>Payment ID</th>
+                                <th>Customer</th>
+                                <th>Order ID</th>
+                                <th>Amount</th>
+                                <th>Payment Date</th>
+                                <th>Status</th>
+                            </tr>
                         </thead>
                         <tbody>
                             <?php
@@ -954,18 +967,18 @@ if (isset($_POST['update_collector_status'])) {
                             ");
                             while($payment = $stmt->fetch()):
                             ?>
-                             <tr>
+                            <tr>
                                 <td>#<?php echo $payment['id']; ?></td>
                                 <td><?php echo htmlspecialchars($payment['firstname'] . ' ' . $payment['lastname']); ?></td>
                                 <td>#<?php echo $payment['order_id']; ?></td>
                                 <td>RWF <?php echo number_format($payment['amount']); ?></td>
-                                <td><?php echo $payment['payment_date'] && $payment['payment_date'] != '0000-00-00' ? date('M j, Y', strtotime($payment['payment_date'])) : 'Pending'; ?></td>
+                                <td><?php echo $payment['payment_date'] ? date('M j, Y', strtotime($payment['payment_date'])) : 'Pending'; ?></td>
                                 <td>
-                                    <span class="status-badge <?php echo ($payment['payment_date'] && $payment['payment_date'] != '0000-00-00') ? 'status-paid' : 'status-pending'; ?>">
-                                        <?php echo ($payment['payment_date'] && $payment['payment_date'] != '0000-00-00') ? 'Paid' : 'Pending'; ?>
+                                    <span class="status-badge <?php echo $payment['payment_date'] ? 'status-paid' : 'status-pending'; ?>">
+                                        <?php echo $payment['payment_date'] ? 'Paid' : 'Pending'; ?>
                                     </span>
                                 </td>
-                             </tr>
+                            </tr>
                             <?php endwhile; ?>
                         </tbody>
                     </table>
@@ -1009,21 +1022,21 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            32<th>Date</th><th>Orders</th><th>Collected</th><th>Pending</th><th>Paid Orders</th><th>Pending Orders</th> </tr>
+                            <tr><th>Date</th><th>Orders</th><th>Collected</th><th>Pending</th><th>Paid Orders</th><th>Pending Orders</th></tr>
                         </thead>
                         <tbody>
                             <?php foreach($dailyReports as $report): ?>
-                             <tr>
+                            <tr>
                                 <td><?php echo date('M j, Y', strtotime($report['date'])); ?></td>
                                 <td><?php echo $report['total_orders']; ?></td>
                                 <td>RWF <?php echo number_format($report['collected_amount']); ?></td>
                                 <td>RWF <?php echo number_format($report['pending_amount']); ?></td>
                                 <td><?php echo $report['paid_orders']; ?></td>
                                 <td><?php echo $report['pending_orders']; ?></td>
-                             </tr>
+                            </tr>
                             <?php endforeach; ?>
                             <?php if(count($dailyReports) == 0): ?>
-                             <tr><td colspan="6" style="text-align: center;">No data available</td></tr>
+                            <tr><td colspan="6" style="text-align: center;">No data available</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -1036,19 +1049,19 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            32<th>Month</th><th>Total Orders</th><th>Collected Amount</th><th>Pending Amount</th> </tr>
+                            <tr><th>Month</th><th>Total Orders</th><th>Collected Amount</th><th>Pending Amount</th></tr>
                         </thead>
                         <tbody>
                             <?php foreach($monthlyReports as $report): ?>
-                             <tr>
+                            <tr>
                                 <td><?php echo date('F Y', strtotime($report['month'] . '-01')); ?></td>
                                 <td><?php echo $report['total_orders']; ?></td>
                                 <td>RWF <?php echo number_format($report['collected_amount']); ?></td>
                                 <td>RWF <?php echo number_format($report['pending_amount']); ?></td>
-                             </tr>
+                            </tr>
                             <?php endforeach; ?>
                             <?php if(count($monthlyReports) == 0): ?>
-                             <tr><td colspan="4" style="text-align: center;">No data available</td></tr>
+                            <tr><td colspan="4" style="text-align: center;">No data available</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>
@@ -1061,11 +1074,11 @@ if (isset($_POST['update_collector_status'])) {
                 <div class="table-responsive">
                     <table>
                         <thead>
-                            32<th>Rank</th><th>Customer</th><th>Phone</th><th>Total Orders</th><th>Total Paid</th> </tr>
+                            <tr><th>Rank</th><th>Customer</th><th>Phone</th><th>Total Orders</th><th>Total Paid</th></tr>
                         </thead>
                         <tbody>
                             <?php $rank = 1; foreach($topCustomers as $customer): ?>
-                             <tr>
+                            <tr>
                                 <td>
                                     <?php if($rank == 1): ?>🥇
                                     <?php elseif($rank == 2): ?>🥈
@@ -1076,10 +1089,10 @@ if (isset($_POST['update_collector_status'])) {
                                 <td><?php echo htmlspecialchars($customer['phone']); ?></td>
                                 <td><?php echo $customer['total_orders']; ?></td>
                                 <td>RWF <?php echo number_format($customer['total_paid']); ?></td>
-                             </tr>
+                            </tr>
                             <?php $rank++; endforeach; ?>
                             <?php if(count($topCustomers) == 0): ?>
-                             <tr><td colspan="5" style="text-align: center;">No data available</td></tr>
+                            <tr><td colspan="5" style="text-align: center;">No data available</td></tr>
                             <?php endif; ?>
                         </tbody>
                     </table>

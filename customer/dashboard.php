@@ -9,23 +9,23 @@ require_once '../config/database.php';
 
 $customer_id = $_SESSION['user_id'];
 
-// Get customer details
+// Get customer details - PostgreSQL compatible
 $stmt = $pdo->prepare("SELECT * FROM customer WHERE id = ?");
 $stmt->execute([$customer_id]);
 $customer = $stmt->fetch();
 
-// Get customer orders
+// Get customer orders - PostgreSQL compatible
 $stmt = $pdo->prepare("SELECT * FROM orders WHERE customer_id = ? ORDER BY id DESC");
 $stmt->execute([$customer_id]);
 $orders = $stmt->fetchAll();
 
-// Get customer payments
+// Get customer payments - PostgreSQL compatible
 $stmt = $pdo->prepare("SELECT * FROM payment WHERE customer_id = ? ORDER BY id DESC");
 $stmt->execute([$customer_id]);
 $payments = $stmt->fetchAll();
 
-// Get upcoming pickups (next 7 days)
-$stmt = $pdo->prepare("SELECT * FROM orders WHERE customer_id = ? AND pickup_date >= CURDATE() ORDER BY pickup_date ASC LIMIT 5");
+// Get upcoming pickups (next 7 days) - PostgreSQL uses CURRENT_DATE instead of CURDATE()
+$stmt = $pdo->prepare("SELECT * FROM orders WHERE customer_id = ? AND pickup_date >= CURRENT_DATE ORDER BY pickup_date ASC LIMIT 5");
 $stmt->execute([$customer_id]);
 $upcoming_pickups = $stmt->fetchAll();
 
@@ -33,18 +33,18 @@ $upcoming_pickups = $stmt->fetchAll();
 $total_orders = count($orders);
 $total_paid = 0;
 foreach ($payments as $payment) {
-    if ($payment['payment_date'] && $payment['payment_date'] != '0000-00-00') {
+    if ($payment['payment_date']) {
         $total_paid += $payment['amount'];
     }
 }
 $pending_payments = 0;
 foreach ($payments as $payment) {
-    if (!$payment['payment_date'] || $payment['payment_date'] == '0000-00-00') {
+    if (!$payment['payment_date']) {
         $pending_payments += $payment['amount'];
     }
 }
 
-// Handle schedule pickup with waste type
+// Handle schedule pickup with waste type - PostgreSQL compatible
 if (isset($_POST['schedule_pickup'])) {
     $pickup_date = $_POST['pickup_date'];
     $waste_type = $_POST['waste_type'];
@@ -65,7 +65,8 @@ if (isset($_POST['schedule_pickup'])) {
             $stmt = $pdo->prepare("INSERT INTO orders (customer_id, pickup_date, waste_type) VALUES (?, ?, ?)");
             $stmt->execute([$customer_id, $pickup_date, $waste_type]);
             $order_id = $pdo->lastInsertId();
-            $stmt = $pdo->prepare("INSERT INTO payment (order_id, customer_id, amount, payment_date) VALUES (?, ?, ?, '0000-00-00')");
+            // PostgreSQL uses NULL for no payment date instead of '0000-00-00'
+            $stmt = $pdo->prepare("INSERT INTO payment (order_id, customer_id, amount, payment_date) VALUES (?, ?, ?, NULL)");
             $stmt->execute([$order_id, $customer_id, $amount]);
             $pdo->commit();
             $success = "Pickup scheduled successfully for " . date('F j, Y', strtotime($pickup_date));
@@ -80,7 +81,7 @@ if (isset($_POST['schedule_pickup'])) {
     }
 }
 
-// Handle support ticket
+// Handle support ticket - PostgreSQL compatible
 if (isset($_POST['submit_support'])) {
     $fullname = $_POST['fullname'];
     $email = $_POST['email'];
@@ -95,7 +96,7 @@ if (isset($_POST['submit_support'])) {
     }
 }
 
-// Handle profile update
+// Handle profile update - PostgreSQL compatible
 if (isset($_POST['update_profile'])) {
     $firstname = $_POST['firstname'];
     $lastname = $_POST['lastname'];
@@ -715,7 +716,7 @@ $logoExists = file_exists(__DIR__ . '/../logo.jpeg');
             <div class="section-card">
                 <h3 class="section-title"><i class="fas fa-calendar-week"></i> Upcoming Pickups</h3>
                 <?php if(count($upcoming_pickups) > 0): ?>
-                    <div class="table-responsive"><tr><thead></tr><th>Order ID</th><th>Pickup Date</th><th>Waste Type</th><th>Status</th><th>Created</th></tr></thead>
+                    <div class="table-responsive"></table><thead><tr><th>Order ID</th><th>Pickup Date</th><th>Waste Type</th><th>Status</th><th>Created</th></tr></thead>
                     <tbody><?php foreach($upcoming_pickups as $order): ?><tr>
                         <td>#<?php echo $order['id']; ?></td>
                         <td><?php echo date('F j, Y', strtotime($order['pickup_date'])); ?></td>
@@ -731,7 +732,7 @@ $logoExists = file_exists(__DIR__ . '/../logo.jpeg');
             <div class="section-card">
                 <h3 class="section-title"><i class="fas fa-history"></i> Recent Orders</h3>
                 <?php if(count($orders) > 0): ?>
-                    <div class="table-responsive"><table><thead></td><th>Order ID</th><th>Pickup Date</th><th>Waste Type</th><th>Created</th></tr></thead>
+                    <div class="table-responsive"><table><thead><tr><th>Order ID</th><th>Pickup Date</th><th>Waste Type</th><th>Created</th></tr></thead>
                     <tbody><?php foreach(array_slice($orders, 0, 5) as $order): ?><tr>
                         <td>#<?php echo $order['id']; ?></td>
                         <td><?php echo date('F j, Y', strtotime($order['pickup_date'])); ?></td>
@@ -798,14 +799,14 @@ $logoExists = file_exists(__DIR__ . '/../logo.jpeg');
         <div id="payments-tab" class="tab-content">
             <div class="section-card"><h3 class="section-title"><i class="fas fa-money-bill-wave"></i> Payment History</h3>
                 <?php if(count($payments) > 0): ?>
-                    <div class="table-responsive"><table><thead><tr><th>Payment ID</th><th>Order ID</th><th>Amount</th><th>Payment Date</th><th>Status</th></tr></thead>
+                    <div class="table-responsive"><tr><thead><tr><th>Payment ID</th><th>Order ID</th><th>Amount</th><th>Payment Date</th><th>Status</th></tr></thead>
                     <tbody><?php foreach($payments as $payment): ?><tr>
                         <td>#<?php echo $payment['id']; ?></td>
                         <td>#<?php echo $payment['order_id']; ?></td>
                         <td>RWF <?php echo number_format($payment['amount']); ?></td>
-                        <td><?php echo ($payment['payment_date'] && $payment['payment_date'] != '0000-00-00') ? date('F j, Y', strtotime($payment['payment_date'])) : '<span style="color: #ffc107;">Pending</span>'; ?></td>
-                        <td><?php if($payment['payment_date'] && $payment['payment_date'] != '0000-00-00'): ?><span class="status-badge status-paid">Paid</span><?php else: ?><span class="status-badge status-pending">Pending</span><?php endif; ?></td>
-                    </tr><?php endforeach; ?></tbody></table></div>
+                        <td><?php echo ($payment['payment_date']) ? date('F j, Y', strtotime($payment['payment_date'])) : '<span style="color: #ffc107;">Pending</span>'; ?></td>
+                        <td><?php if($payment['payment_date']): ?><span class="status-badge status-paid">Paid</span><?php else: ?><span class="status-badge status-pending">Pending</span><?php endif; ?></td>
+                    </tr><?php endforeach; ?></tbody>｜｜DSML｜｜</div>
                 <?php else: ?><p style="text-align: center; padding: 2rem;"><i class="fas fa-receipt"></i> No payment records found</p><?php endif; ?>
             </div>
         </div>

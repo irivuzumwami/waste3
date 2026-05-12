@@ -45,7 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $errors[] = "Invalid phone number! Must be 10 digits starting with 07";
     }
     
-    // Check if email already exists
+    // Check if email already exists - PostgreSQL compatible
     try {
         $check_email = $pdo->prepare("SELECT id FROM workers WHERE email = ?");
         $check_email->execute([$email]);
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $errors[] = "Email address already registered!";
         }
         
-        // Check if phone already exists
+        // Check if phone already exists - PostgreSQL compatible
         $check_phone = $pdo->prepare("SELECT id FROM workers WHERE phone = ?");
         $check_phone->execute([$phone]);
         if ($check_phone->rowCount() > 0) {
@@ -67,6 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     // If no errors, proceed with registration
     if (empty($errors)) {
         try {
+            // PostgreSQL compatible INSERT statement
             $stmt = $pdo->prepare("INSERT INTO workers (firstname, lastname, gender, phone, email, status, role, password) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
             
             $result = $stmt->execute([$firstname, $lastname, $gender, $phone, $email, $status, $role, $password]);
@@ -99,7 +100,7 @@ if (!file_exists($bgImagePath)) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Add Manager - EcoWaste Admin</title>
+    <title>Add Manager - WMS Admin</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -268,13 +269,13 @@ if (!file_exists($bgImagePath)) {
         
         .btn-submit {
             flex: 2;
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary), #2e4a8a);
             color: #fff;
             border: 1px solid var(--secondary);
         }
         
         .btn-submit:hover {
-            background: var(--secondary);
+            background: linear-gradient(135deg, var(--secondary), #fcd34d);
             color: var(--primary);
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(251, 191, 36, 0.3);
@@ -282,13 +283,13 @@ if (!file_exists($bgImagePath)) {
         
         .btn-back {
             flex: 1;
-            background: var(--primary);
+            background: linear-gradient(135deg, var(--primary), #2e4a8a);
             color: #fff;
             border: 1px solid var(--secondary);
         }
         
         .btn-back:hover {
-            background: var(--secondary);
+            background: linear-gradient(135deg, var(--secondary), #fcd34d);
             color: var(--primary);
             transform: translateY(-2px);
             box-shadow: 0 5px 15px rgba(251, 191, 36, 0.3);
@@ -344,6 +345,7 @@ if (!file_exists($bgImagePath)) {
             display: block;
             margin-top: 0.3rem;
             color: var(--text-muted);
+            font-size: 0.7rem;
         }
         
         @keyframes slideIn {
@@ -415,8 +417,8 @@ if (!file_exists($bgImagePath)) {
                     <label><i class="fas fa-venus-mars"></i> Gender *</label>
                     <select name="gender" required>
                         <option value="">Select Gender</option>
-                        <option value="Male" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'Male') ? 'selected' : ''; ?>>Male</option>
-                        <option value="Female" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'Female') ? 'selected' : ''; ?>>Female</option>
+                        <option value="Male" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'Male') ? 'selected' : ''; ?>>👨 Male</option>
+                        <option value="Female" <?php echo (isset($_POST['gender']) && $_POST['gender'] == 'Female') ? 'selected' : ''; ?>>👩 Female</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -428,7 +430,7 @@ if (!file_exists($bgImagePath)) {
             
             <div class="form-group">
                 <label><i class="fas fa-envelope"></i> Email *</label>
-                <input type="email" name="email" id="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" placeholder="manager@ecowaste.rw" required>
+                <input type="email" name="email" id="email" value="<?php echo isset($_POST['email']) ? htmlspecialchars($_POST['email']) : ''; ?>" placeholder="manager@wms.rw" required>
             </div>
             
             <div class="row">
@@ -581,13 +583,14 @@ if (!file_exists($bgImagePath)) {
             confirmField.addEventListener('input', checkPasswordMatch);
         }
         
-        // setTimeout(() => {
-        //     const alerts = document.querySelectorAll('.alert');
-        //     alerts.forEach(alert => {
-        //         alert.style.opacity = '0';
-        //         setTimeout(() => alert.remove(), 300);
-        //     });
-        // }, 5000);
+        // Auto-hide alerts after 5 seconds
+        setTimeout(() => {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 5000);
     </script>
 </body>
 </html>
