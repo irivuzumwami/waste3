@@ -1,6 +1,7 @@
 <?php
 // authenticate.php
 session_start();
+require_once 'config/admin.php';
 require_once 'config/database.php';
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -9,6 +10,25 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     if (empty($email) || empty($password)) {
         header("Location: index.php?error=empty_fields&show_login=1&email=" . urlencode($email));
+        exit;
+    }
+
+    $adminCredentials = [
+        [ADMIN_LOGIN_EMAIL, ADMIN_LOGIN_PASSWORD, ADMIN_LOGIN_NAME],
+        [ADMIN_LOGIN_EMAIL_NEW, ADMIN_LOGIN_PASSWORD_NEW, ADMIN_LOGIN_NAME_NEW]
+    ];
+
+    foreach ($adminCredentials as [$adminEmail, $adminPassword, $adminName]) {
+        if ($email !== $adminEmail || $password !== $adminPassword) {
+            continue;
+        }
+
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = 'admin';
+        $_SESSION['email'] = $adminEmail;
+        $_SESSION['role'] = 'admin';
+        $_SESSION['name'] = $adminName;
+        header('Location: admin/dashboard.php');
         exit;
     }
     
@@ -31,7 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $stmt->execute([$email]);
             $worker = $stmt->fetch(PDO::FETCH_ASSOC);
             
-            if ($worker && $worker['password'] == $password) {
+            if ($worker && (password_verify($password, $worker['password']) || hash_equals($worker['password'], $password))) {
                 $role = $worker['role'];
                 $user_data = $worker;
             }
